@@ -1,0 +1,8 @@
+# Add this server to your MCP client's configuration.
+# Set SCKETCH3DWEB_MCP_TOKEN in the client's environment to the value in .env.
+# The endpoint is local: keep the editor open at http://127.0.0.1:31880/?editor=1.
+[mcp_servers.scketch3dweb_local]
+url = "http://127.0.0.1:31881/mcp"
+bearer_token_env_var = "SCKETCH3DWEB_MCP_TOKEN"
+startup_timeout_sec = 20
+tool_timeout_sec = 120

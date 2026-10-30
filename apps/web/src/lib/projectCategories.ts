@@ -1,0 +1,1 @@
+export const PROJECT_CATEGORIES=[{id:'general',label:'General'},{id:'mechanical',label:'Mechanical parts'},{id:'enclosures',label:'Enclosures'},{id:'robotics',label:'Robotics'},{id:'decor',label:'Decor'},{id:'tools',label:'Tools and fixtures'}] as const;

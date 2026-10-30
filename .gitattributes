@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+*.png binary
+*.wasm binary
+*.ico binary
+*.stl binary
+*.skf binary
+*.glb binary
+
+# Keep original CAD/robot source bytes consistent with catalog checksums.
+*.step -text
+*.urdf -text

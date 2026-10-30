@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scketch3Dweb MCP Skill"
+  short_description: "Control live Scketch3Dweb editor tabs"
+  default_prompt: "Use $scketch3dweb-mcp-skill to inspect the live Scketch3Dweb scene and modify selected objects."

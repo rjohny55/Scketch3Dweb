@@ -1,0 +1,168 @@
+[
+  {
+    "id": "first-part",
+    "title": "Your first precise part",
+    "description": "Make a 30 × 20 × 5 mm spacer, learn the camera and save your work.",
+    "duration": "8–12 min",
+    "skills": [
+      "Shapes",
+      "Dimensions",
+      "Export"
+    ],
+    "steps": [
+      {
+        "title": "Add a box",
+        "instruction": "In the top toolbar, open Shapes → Basic solids → Box. Click the new object to select it. The button below points to Shapes.",
+        "target": "[data-scketch3dweb-tool=\"shapes\"]",
+        "rule": "box",
+        "checkText": "A solid box is present."
+      },
+      {
+        "title": "Enter exact dimensions",
+        "instruction": "Select the box. In its properties on the right enter Length 30, Width 20 and Height 5 mm. Press Enter after editing each field.",
+        "target": ".shape-inspector",
+        "rule": "block-size",
+        "checkText": "The box measures 30 × 20 × 5 mm."
+      },
+      {
+        "title": "Inspect every side",
+        "instruction": "Use camera mode (the hand) to orbit around the part. Zoom with the wheel; hold the right mouse button to move the camera. Check that the part rests on the floor. Confirm this step below.",
+        "target": ".camera-controls"
+      },
+      {
+        "title": "Practice undo",
+        "instruction": "Select the part and change its height to 6 mm. Press Ctrl+Z to restore 5 mm. The check below reads the current dimensions; verify that you actually tried Undo before continuing.",
+        "target": "[data-scketch3dweb-tool=\"undo\"]",
+        "rule": "block-size",
+        "checkText": "The original dimensions are restored."
+      },
+      {
+        "title": "Save the editable project",
+        "instruction": "Open Export, select SKF and save the project. SKF keeps editable objects. Return here and confirm only after the file has downloaded.",
+        "target": "[data-scketch3dweb-tool=\"export\"]"
+      },
+      {
+        "title": "Prepare an STL",
+        "instruction": "Open Export again, select STL and download it. Open the file in your slicer and check its size. You have made your first precise part. Confirm to finish.",
+        "target": "[data-scketch3dweb-tool=\"export\"]"
+      }
+    ]
+  },
+  {
+    "id": "mounting-plate",
+    "title": "A plate with a through-hole",
+    "description": "Build a mounting plate and learn cutters, alignment and grouping.",
+    "duration": "12–18 min",
+    "skills": [
+      "Cutter",
+      "Align",
+      "Group"
+    ],
+    "steps": [
+      {
+        "title": "Make the plate",
+        "instruction": "Shapes → Basic solids → Box. In its properties set Length 40, Width 30 and Height 4 mm. Leave it resting on the floor.",
+        "target": "[data-scketch3dweb-tool=\"shapes\"]",
+        "rule": "plate-size",
+        "checkText": "A solid 40 × 30 × 4 mm plate is present."
+      },
+      {
+        "title": "Add a drilling tool",
+        "instruction": "Shapes → Cylinder. Select it and set Length 6, Width 6 and Height 8 mm. Keep its elevation at 0 so it crosses the whole 4 mm plate.",
+        "target": "[data-scketch3dweb-tool=\"shapes\"]",
+        "rule": "drill-size",
+        "checkText": "A 6 × 6 × 8 mm cylinder is present."
+      },
+      {
+        "title": "Turn the cylinder into a cutter",
+        "instruction": "Select only the cylinder. In the top quick modeling tools click Cutter. It becomes a cutting volume rather than a second solid part.",
+        "target": "[data-modeling-action=\"cutter\"]",
+        "rule": "cutter-cylinder",
+        "checkText": "The cylinder is marked as a cutter."
+      },
+      {
+        "title": "Center the hole",
+        "instruction": "Select the plate and press L to lock it. Hold Shift and select the cylinder too. Click Align, then the middle handles on both horizontal axes X and Z. The locked plate stays in place.",
+        "target": "[data-scketch3dweb-tool=\"align\"]"
+      },
+      {
+        "title": "Unlock and combine",
+        "instruction": "Select only the plate and press L to unlock it. Press Ctrl+A, then Group (Ctrl+G). The cylinder cuts a hole through the plate. If Group is disabled, check selection and locks.",
+        "target": "[data-scketch3dweb-tool=\"group\"]",
+        "rule": "grouped",
+        "checkText": "The result is a single group."
+      },
+      {
+        "title": "Check the opening",
+        "instruction": "Orbit the camera to look through the opening from above and below. Confirm that it is open all the way through. Grouping alone does not prove that the hole is correct.",
+        "target": ".camera-controls"
+      },
+      {
+        "title": "Save both versions",
+        "instruction": "Export SKF to keep the editable group, then STL for printing. Check the hole in your slicer before printing. Confirm after both files have downloaded.",
+        "target": "[data-scketch3dweb-tool=\"export\"]"
+      }
+    ]
+  },
+  {
+    "id": "small-enclosure",
+    "title": "A small open enclosure",
+    "description": "Create a hollow enclosure with a floor, estimate plastic and export it.",
+    "duration": "15–20 min",
+    "skills": [
+      "Dimensions",
+      "Cutter",
+      "Plastic"
+    ],
+    "steps": [
+      {
+        "title": "Create the outer shell",
+        "instruction": "Add a Box. Set Length 50, Width 40, Height 20 mm and leave elevation at 0. This is the outside of the enclosure.",
+        "target": "[data-scketch3dweb-tool=\"shapes\"]",
+        "rule": "outer-size",
+        "checkText": "A solid 50 × 40 × 20 mm box is present."
+      },
+      {
+        "title": "Define the cavity",
+        "instruction": "Add a second Box. Set Length 44, Width 34 and Height 20 mm. Use the elevation handle to lift it to 3 mm; its top will extend 3 mm above the shell.",
+        "target": "[data-scketch3dweb-tool=\"shapes\"]",
+        "rule": "inner-size",
+        "checkText": "The inner box is 44 × 34 × 20 mm at elevation 3 mm."
+      },
+      {
+        "title": "Make the cavity a cutter",
+        "instruction": "Select only the smaller box and enable Cutter in the top quick tools. Do not enable Cutter on the outside box.",
+        "target": "[data-modeling-action=\"cutter\"]",
+        "rule": "cutter-box",
+        "checkText": "The correctly sized inner box is a cutter."
+      },
+      {
+        "title": "Keep equal wall thickness",
+        "instruction": "Lock the outside box with L. Shift-select the cutter, click Align and center on X and Z only. Do not align vertically: the cutter must stay elevated by 3 mm to leave a floor.",
+        "target": "[data-scketch3dweb-tool=\"align\"]"
+      },
+      {
+        "title": "Hollow out the enclosure",
+        "instruction": "Unlock the outside box with L. Select both objects (Ctrl+A) and Group (Ctrl+G). You should get an open enclosure with 3 mm walls and a 3 mm floor.",
+        "target": "[data-scketch3dweb-tool=\"group\"]",
+        "rule": "grouped",
+        "checkText": "The result is a single group."
+      },
+      {
+        "title": "Inspect the floor and walls",
+        "instruction": "Look into the cavity and then underneath. Confirm there is a floor, an open top and equally thick walls. If the bottom is missing, undo and check the cutter elevation.",
+        "target": ".camera-controls"
+      },
+      {
+        "title": "Estimate printing material",
+        "instruction": "In the top quick tools click Plastic. In the side panel choose material and infill, enter the price per kilogram and press Calculate. This is an estimate; compare it with the slicer later.",
+        "target": "[data-modeling-action=\"plastic\"]"
+      },
+      {
+        "title": "Save and check in a slicer",
+        "instruction": "Export SKF and STL. In your slicer place the floor on the build plate and inspect the layer preview. Confirm after checking that the cavity remains open and the floor is printable.",
+        "target": "[data-scketch3dweb-tool=\"export\"]"
+      }
+    ]
+  }
+]

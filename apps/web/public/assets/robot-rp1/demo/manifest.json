@@ -1,0 +1,26 @@
+{
+  "title": "RP1 — сборка и комплект деталей",
+  "file": "/assets/robot-rp1/demo/rp1-assembly.skf",
+  "assemblyObjects": 63,
+  "handObjects": 34,
+  "catalogObjects": 51,
+  "totalObjects": 114,
+  "triangles": 2050198,
+  "bytes": 46265884,
+  "sha256": "ae69f45a0f49dfe3eff4d6a1b889003167805491599a1291cb766b79d299b114",
+  "assemblyHeightMm": 1321.2588543255497,
+  "assemblyBounds": {
+    "min": [
+      -227.02881630682842,
+      -775.6550214529623,
+      -185.58294571111955
+    ],
+    "max": [
+      221.00294372883442,
+      545.6038328725875,
+      446.21645437118787
+    ]
+  },
+  "assemblySource": "https://github.com/Roboparty/rp1_description/tree/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0",
+  "placement": "Exact zero-pose rp1_hand URDF assembly plus all51 catalog manufacturing parts in a separate, non-overlapping service kit. Manufacturing CAD and URDF versions are not asserted interchangeable."
+}

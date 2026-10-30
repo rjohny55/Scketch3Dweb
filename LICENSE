@@ -1,0 +1,14 @@
+Scketch3Dweb
+
+Copyright (c) 2026 Scketch3Dweb contributors
+
+The application source code is licensed, at your option, under either:
+
+  * The MIT License — see LICENSE-MIT
+  * The Apache License, Version 2.0 — see LICENSE-APACHE
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+
+Third-party dependencies and assets retain their own licenses and notices.
+In particular, RP1 hardware designs and associated documentation retain the
+licensing information distributed in apps/web/public/assets/robot-rp1/.

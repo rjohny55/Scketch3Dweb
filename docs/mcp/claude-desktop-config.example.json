@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "scketch3dweb": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/Scketch3Dweb-3D/scripts/scketch3dweb-mcp-server.mjs"
+      ]
+    }
+  }
+}

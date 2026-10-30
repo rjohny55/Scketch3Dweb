@@ -1,0 +1,391 @@
+{
+  "sourceRepository": "https://github.com/Roboparty/rp1_description",
+  "sourceCommit": "d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0",
+  "pose": "All URDF joint coordinates zero; visual and joint origins composed exactly; meters converted to millimeters.",
+  "urdf": {
+    "path": "urdf/rp1_hand.urdf",
+    "sha256": "87dfcfe4b81afd6bdeb2c500bbc58fb5ba822d65d27024a6afb10714d05c4dcd",
+    "bytes": 72378,
+    "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/urdf/rp1_hand.urdf"
+  },
+  "meshes": [
+    {
+      "path": "meshes/base_link.STL",
+      "sha256": "8fa93e11010c1d0a35ae79f03638fadfc26335320dbfbbd6ff56b5c6cb3c0d2e",
+      "bytes": 2954484,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/base_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/base_link.STL",
+      "sha256": "4739db41c0ded1887e9066519d4964c3415e5d89a3cb2d5d5dc2cc29fdbfac17",
+      "bytes": 4176734,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/base_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger11_link.STL",
+      "sha256": "7cf109edb338f5534da6d57e83163da3de74ca09d39c3f8e05c856f388970374",
+      "bytes": 90084,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger11_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger12_link.STL",
+      "sha256": "a8789d4ff2340f2a56b77e1aedd666a447263df2a2d3adfd580d84fc4d1fd4d5",
+      "bytes": 90434,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger12_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger13_link.STL",
+      "sha256": "4368c58cbef11645470b54227e43d3e89873562d7ada20bf13055da04b8e363e",
+      "bytes": 103734,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger13_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger14_link.STL",
+      "sha256": "dd3b4e93088b59835baef2b02d92f76cb14d0021d479686e4b8a23a5fc4a7723",
+      "bytes": 144184,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger14_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger21_link.STL",
+      "sha256": "6addde350a6020f1a1f90660a27af8dc0baab6e7fee56cb725378bef4e6c3246",
+      "bytes": 122084,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger21_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger22_link.STL",
+      "sha256": "1fc0dc83063dac809c00bdfd4ba9b06c38cf86c55544c0355afe08c410065322",
+      "bytes": 109434,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger22_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger23_link.STL",
+      "sha256": "24e78ec745d75d4c685ee55b7cbd5a73df67d1be517f4d112fffc01e96ef1855",
+      "bytes": 209134,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger23_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger31_link.STL",
+      "sha256": "4231dd95f206e088abcfe0455abfbc1de5efb5ca299cc8b92082d2d753fc2308",
+      "bytes": 104384,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger31_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger32_link.STL",
+      "sha256": "5e58165e0374f619eb93620d219a673735e9037f638287bb825ef8e5dcbf37fd",
+      "bytes": 100684,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger32_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger33_link.STL",
+      "sha256": "09e3156d24304c31a1a6df86064fbdf366bd44a38dc4ca124f221d1353527ca3",
+      "bytes": 238884,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger33_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger41_link.STL",
+      "sha256": "5730c800189232949e307a5623b1b20b4b4a5c2a89d1a400331bcf054d594860",
+      "bytes": 90784,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger41_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger42_link.STL",
+      "sha256": "ee57e8c97864f848a881d65a23913f690627e05d99072b3a428a53f34ddf221c",
+      "bytes": 114784,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger42_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger43_link.STL",
+      "sha256": "5987268ec514f613783802887d7993a99b68857c74af384e7f3a7325fd1dfcc7",
+      "bytes": 208884,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger43_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger51_link.STL",
+      "sha256": "605e815f975c1b5c5a0782bf19449092acc40df3ad78dee3753deecf694ff3f0",
+      "bytes": 114684,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger51_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger52_link.STL",
+      "sha256": "84d8de240d38a04eb07f342d09a8a9bf46f3ae7614324dd78ffbfccd1103e509",
+      "bytes": 117284,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger52_link.STL"
+    },
+    {
+      "path": "meshes/hand/left/finger53_link.STL",
+      "sha256": "7e0f000b923d6e2d14d8e659831b52fdcfd7dbca743fa4df4ae18391a0125b86",
+      "bytes": 204484,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/left/finger53_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/base_link.STL",
+      "sha256": "f53cc045a107672034f0b9fa31316a36e6ced59997b320fe1affbbc8232ad3ff",
+      "bytes": 4171934,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/base_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger11_link.STL",
+      "sha256": "ebe1a695dc01bb23f04971894787a97b5c4ee5db6de1bf02fb7fd68e0cfc1604",
+      "bytes": 90084,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger11_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger12_link.STL",
+      "sha256": "c2cd898d230a7f37d4f1dd62bdfb72115ffdad1b0a7ae455e91d544b51ac84b5",
+      "bytes": 90434,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger12_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger13_link.STL",
+      "sha256": "4368c58cbef11645470b54227e43d3e89873562d7ada20bf13055da04b8e363e",
+      "bytes": 103734,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger13_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger14_link.STL",
+      "sha256": "dd3b4e93088b59835baef2b02d92f76cb14d0021d479686e4b8a23a5fc4a7723",
+      "bytes": 144184,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger14_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger21_link.STL",
+      "sha256": "0e7e75a6d262b2e898186e8651f816f061847e20e8fdad83b4d6cb3b2df1c30b",
+      "bytes": 122184,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger21_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger22_link.STL",
+      "sha256": "89baca2ab49bd431fecca5a6b97d22a8a737034719c568aa9818c52938c0adb8",
+      "bytes": 109484,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger22_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger23_link.STL",
+      "sha256": "193b218cdd0a00c6a33c3508b77ad7b711b2ae62de62be03d76c3c8b20d3939d",
+      "bytes": 209134,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger23_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger31_link.STL",
+      "sha256": "3c91423694601ddfef7eb89addc07c36720b6bc7932ceeb51dd0390ec3ee6280",
+      "bytes": 104434,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger31_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger32_link.STL",
+      "sha256": "ea2ca6dc94f88d9073cd9458c6257553398211fdc13ea1c7672a2f00c4980424",
+      "bytes": 100734,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger32_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger33_link.STL",
+      "sha256": "e4b83093e861b4b3dfa1e96d472902e9879509e5a82665a4b358b073f7597304",
+      "bytes": 238884,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger33_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger41_link.STL",
+      "sha256": "db7a57d93563b25a982de6e406cc7cb37495b7e3f18cdafc185cacd068f827a7",
+      "bytes": 90784,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger41_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger42_link.STL",
+      "sha256": "011eeb43b0e2d7d4a77c80e4d41fbadf0a8879a0767060b83cfce5c22e2e8e95",
+      "bytes": 114834,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger42_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger43_link.STL",
+      "sha256": "54c280313ad22618b0e57c184b58f77b5fb834cecfa765037fe6e77de612b7af",
+      "bytes": 209084,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger43_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger51_link.STL",
+      "sha256": "3d0f3037d29ef6388813411d97fe18b19d844ffc85de2c45412bfb06110d7dd1",
+      "bytes": 114684,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger51_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger52_link.STL",
+      "sha256": "1c428e04398a5b8ebea053ae4a4a258db6c38d491b3e5d26953d186ea7f030b5",
+      "bytes": 117334,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger52_link.STL"
+    },
+    {
+      "path": "meshes/hand/right/finger53_link.STL",
+      "sha256": "b247651e8007b843fea868e91a0159dbf9014f075b9ac17ffdfb8d247e822c12",
+      "bytes": 204484,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/hand/right/finger53_link.STL"
+    },
+    {
+      "path": "meshes/left_ankle_pitch_link.STL",
+      "sha256": "c4f5d66f6d6f0eaa0ef232b841d85907fca99ec81013b0682f35277ae16cc9e1",
+      "bytes": 63484,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_ankle_pitch_link.STL"
+    },
+    {
+      "path": "meshes/left_ankle_roll_link.STL",
+      "sha256": "4ac951e3a1adef25aff5d5a9557bab03e293340bb5713cb2b43d3888947560c0",
+      "bytes": 732984,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_ankle_roll_link.STL"
+    },
+    {
+      "path": "meshes/left_elbow_link.STL",
+      "sha256": "45e761a34c5570ec7b200a6b15cf6e5d7dfe61fea1497e1954e17140c3c400b1",
+      "bytes": 1927134,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_elbow_link.STL"
+    },
+    {
+      "path": "meshes/left_hip_pitch_link.STL",
+      "sha256": "cd12a399efb65721f3c75b73619971eafb26958367c30222ef3110bd4090a19d",
+      "bytes": 882384,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_hip_pitch_link.STL"
+    },
+    {
+      "path": "meshes/left_hip_roll_link.STL",
+      "sha256": "4ccc27044b9c274cd81dae6775a59036c6449bb3d64fb6ed70294f17046edcb8",
+      "bytes": 1816834,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_hip_roll_link.STL"
+    },
+    {
+      "path": "meshes/left_hip_yaw_link.STL",
+      "sha256": "e6361ed133e72f2040c88529746d4c17a057d60b0e8d253318fc94bea514e129",
+      "bytes": 1650784,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_hip_yaw_link.STL"
+    },
+    {
+      "path": "meshes/left_knee_link.STL",
+      "sha256": "878aa675f24ad2154265e72c4a3fbed65de041337dfe5c80c74f3333e6f6602a",
+      "bytes": 4138534,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_knee_link.STL"
+    },
+    {
+      "path": "meshes/left_shoulder_pitch_link.STL",
+      "sha256": "2c0eb4ed8ccd410dc2d7f6949829a59d05889ab27ea4944120e8689720e6c40b",
+      "bytes": 906184,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_shoulder_pitch_link.STL"
+    },
+    {
+      "path": "meshes/left_shoulder_roll_link.STL",
+      "sha256": "41f6738917180d3aa62798f279e99f4d64ed57950d6138f8e249c7ca629444a9",
+      "bytes": 1201984,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_shoulder_roll_link.STL"
+    },
+    {
+      "path": "meshes/left_shoulder_yaw_link.STL",
+      "sha256": "4cfe28c2a31c5b7602c8546cac8fa491a97f1b88cbe579d48034bf857702adbb",
+      "bytes": 1027984,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_shoulder_yaw_link.STL"
+    },
+    {
+      "path": "meshes/left_wrist_pitch_link.STL",
+      "sha256": "da93046e7d2db4fa35a6bec6a77dce76819b1abcba799003e9cb7daf30d24b2c",
+      "bytes": 2032734,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_wrist_pitch_link.STL"
+    },
+    {
+      "path": "meshes/left_wrist_roll_link.STL",
+      "sha256": "74462f873e4776f14601da7f72c35e9a9e2bf0cf060463bec207f46bad527ac8",
+      "bytes": 750484,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_wrist_roll_link.STL"
+    },
+    {
+      "path": "meshes/left_wrist_yaw_link.STL",
+      "sha256": "01f494bbe21b95a7308ea29c9ef7e08a6214515a93c5e2be307c6fa11b1f6a34",
+      "bytes": 1078134,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/left_wrist_yaw_link.STL"
+    },
+    {
+      "path": "meshes/right_ankle_pitch_link.STL",
+      "sha256": "f19f73d04f8b0252e4001de541657864c44c5e7da204b7487d24eff162644b6c",
+      "bytes": 63484,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_ankle_pitch_link.STL"
+    },
+    {
+      "path": "meshes/right_ankle_roll_link.STL",
+      "sha256": "057843359003abc4e5ec0a9763833440c42b881f853c1ddbd3945bd1168ff947",
+      "bytes": 733034,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_ankle_roll_link.STL"
+    },
+    {
+      "path": "meshes/right_elbow_link.STL",
+      "sha256": "34c9eeeb41588fc9970940d4d82db73ee0c3881613d1a76f0c90421d3b7c8e81",
+      "bytes": 1927534,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_elbow_link.STL"
+    },
+    {
+      "path": "meshes/right_hip_pitch_link.STL",
+      "sha256": "a427e4c982b181623b8f322f45be08ebfc2f73abdf5492afb8728e0fefa80d83",
+      "bytes": 884784,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_hip_pitch_link.STL"
+    },
+    {
+      "path": "meshes/right_hip_roll_link.STL",
+      "sha256": "52c5c2edb3e83aafdbc633ee10ff4c368993e6c889d6a560d75982da5cc9a799",
+      "bytes": 1815834,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_hip_roll_link.STL"
+    },
+    {
+      "path": "meshes/right_hip_yaw_link.STL",
+      "sha256": "7e792ca8795b4f44b7de1e2e8747a6c188c10fb8810b17f3269965dde27292bc",
+      "bytes": 1796034,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_hip_yaw_link.STL"
+    },
+    {
+      "path": "meshes/right_knee_link.STL",
+      "sha256": "ffe17fc9ba1614ae86610dc1b657461a3d1d70350729296c9210f68f3934d01d",
+      "bytes": 4129784,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_knee_link.STL"
+    },
+    {
+      "path": "meshes/right_shoulder_pitch_link.STL",
+      "sha256": "21ac44a4e038f09a7f0472490ee06c3ecb5c87cac51fdb645ad4382875235be0",
+      "bytes": 906634,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_shoulder_pitch_link.STL"
+    },
+    {
+      "path": "meshes/right_shoulder_roll_link.STL",
+      "sha256": "4435df453ffe4325b6783d217081ec6360d52252ddb87b7f894434eb9e60c39b",
+      "bytes": 1272984,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_shoulder_roll_link.STL"
+    },
+    {
+      "path": "meshes/right_shoulder_yaw_link.STL",
+      "sha256": "a88c4bce9e69979ae082de8420a031ca6772a4e0d08ab9f10af4b9617f4ec723",
+      "bytes": 1028484,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_shoulder_yaw_link.STL"
+    },
+    {
+      "path": "meshes/right_wrist_pitch_link.STL",
+      "sha256": "5cb2ffb0fcd5cb43c7757793ed187706f17c8efddb67ffe31a2c1067be660954",
+      "bytes": 2000784,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_wrist_pitch_link.STL"
+    },
+    {
+      "path": "meshes/right_wrist_roll_link.STL",
+      "sha256": "35632d2cc24533d8f86fa497928b7744e865b97d2477969173c6ea3e09d4bede",
+      "bytes": 750134,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_wrist_roll_link.STL"
+    },
+    {
+      "path": "meshes/right_wrist_yaw_link.STL",
+      "sha256": "9b91c81609e00ad96f0a360dbbad1d6df3c88193df11033773f7fa463675b6a6",
+      "bytes": 1080034,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/right_wrist_yaw_link.STL"
+    },
+    {
+      "path": "meshes/waist_roll_link.STL",
+      "sha256": "500f00489349bf018bbf325d9ed67dd272629b5f37e734a82b141329a9d656df",
+      "bytes": 741434,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/waist_roll_link.STL"
+    },
+    {
+      "path": "meshes/waist_yaw_link.STL",
+      "sha256": "36de51037852da450e75b86ef000d145e9e1b37e30925edd3e2307d5c2f449d3",
+      "bytes": 3406834,
+      "url": "https://raw.githubusercontent.com/Roboparty/rp1_description/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0/meshes/waist_yaw_link.STL"
+    }
+  ]
+}

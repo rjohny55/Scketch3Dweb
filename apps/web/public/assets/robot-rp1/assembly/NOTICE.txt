@@ -1,0 +1,2 @@
+RP1 visual assembly from https://github.com/Roboparty/rp1_description/tree/d8c6dd03aeecc7f7ead3d962e09fedba4c8460f0
+Original URDF and STL sources are included unchanged. Transform origins are evaluated at zero joint positions and units converted from meters to millimeters for the demo. This repository does not include a separate license file; no additional license is asserted here. The manufacturing parts elsewhere in this catalog carry their own CERN-OHL-W-2.0 notice.

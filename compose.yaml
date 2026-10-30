@@ -1,0 +1,22 @@
+name: scketch3dweb-local
+services:
+  scketch3dweb:
+    image: scketch3dweb-mcp:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:${SCKETCH3DWEB_WEB_PORT:-31880}:3000"
+      - "127.0.0.1:${SCKETCH3DWEB_MCP_PORT:-31881}:3001"
+    environment:
+      SCKETCH3DWEB_MCP_PUBLIC_URL: "http://127.0.0.1:${SCKETCH3DWEB_MCP_PORT:-31881}/mcp"
+      SCKETCH3DWEB_MCP_TOKEN: "${SCKETCH3DWEB_MCP_TOKEN:?Run npm run setup:local first}"
+    volumes:
+      - ${SCKETCH3DWEB_MODELS_VOLUME:-./data/models}:/data/models
+      - scketch3dweb-projects:/data/projects
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  scketch3dweb-projects:

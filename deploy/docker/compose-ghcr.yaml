@@ -1,0 +1,16 @@
+services:
+  scketch3dweb:
+    image: "${SCKETCH3DWEB_IMAGE:?Set the image of your own published Scketch3Dweb build}"
+    ports:
+      - "${SCKETCH3DWEB_PORT:-3000}:3000"
+    environment:
+      SCKETCH3DWEB_SHARED_PROJECTS_DIR: /data/projects
+      SCKETCH3DWEB_UPDATE_TRIGGER_URL: "${SCKETCH3DWEB_UPDATE_TRIGGER_URL:-}"
+      SCKETCH3DWEB_UPDATE_ADMIN_KEY: "${SCKETCH3DWEB_UPDATE_ADMIN_KEY:-}"
+      SCKETCH3DWEB_UPDATE_TRIGGER_TOKEN: "${SCKETCH3DWEB_UPDATE_TRIGGER_TOKEN:-}"
+    volumes:
+      - "${SCKETCH3DWEB_SHARED_PROJECTS_VOLUME:-scketch3dweb-shared-projects}:/data/projects"
+    restart: unless-stopped
+
+volumes:
+  scketch3dweb-shared-projects:

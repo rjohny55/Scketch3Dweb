@@ -1,0 +1,4 @@
+RoboParty RP1 mechanical parts, CERN-OHL-W-2.0.
+Source: https://github.com/Roboparty/rp1_hardware/tree/c595061d2d27bb6bef43ebebd7dcdb0607582581
+Original STEP sources and license are included in source/ and LICENSE.
+Converted for the Scketch3Dweb catalog on 2026-10-28: tessellation to binary Z-up STL and removal of zero-area triangles, XY recentering and placement of the bottom at Z=0 by translation only, without changing scale. Preview drawings are derived from these models.

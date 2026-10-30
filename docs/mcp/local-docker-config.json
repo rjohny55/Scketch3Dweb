@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "scketch3dweb_local": {
+      "type": "http",
+      "url": "http://127.0.0.1:31881/mcp",
+      "headers": { "Authorization": "Bearer ${SCKETCH3DWEB_MCP_TOKEN}" }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# Copy this server block into your Codex config.toml and replace the script
+# path with the absolute path to your Scketch3Dweb checkout.
+#
+# Windows paths can use forward slashes:
+# C:/Users/you/Desktop/Scketch3Dweb-3D/scripts/scketch3dweb-mcp-server.mjs
+
+[mcp_servers.scketch3dweb]
+command = "node"
+args = ["/absolute/path/to/Scketch3Dweb-3D/scripts/scketch3dweb-mcp-server.mjs"]
+startup_timeout_sec = 20

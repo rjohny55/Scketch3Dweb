@@ -1,0 +1,76 @@
+{
+  "name": "scketch3dweb",
+  "version": "1.0.9",
+  "private": true,
+  "description": "Browser-based 3D modeling with shared projects, version history and personal MCP access.",
+  "author": {
+    "name": "Scketch3Dweb contributors"
+  },
+  "desktopName": "scketch3dweb",
+  "main": "apps/desktop/main.cjs",
+  "license": "(MIT OR Apache-2.0)",
+  "scripts": {
+    "setup:local": "node scripts/setup-local.mjs",
+    "mcp:http": "node --env-file=.env scripts/mcp-http/server.mjs",
+    "copy:occt": "node scripts/copy-occt-wasm.mjs",
+    "predev": "npm run copy:occt",
+    "dev": "next dev apps/web --webpack",
+    "prebuild": "npm run copy:occt",
+    "build": "next build apps/web --webpack",
+    "export": "set STATIC_EXPORT=true&& next build apps/web && node scripts/verify-static-worker-assets.mjs",
+    "verify:static-worker-assets": "node scripts/verify-static-worker-assets.mjs",
+    "start": "next start apps/web",
+    "typecheck": "tsc -p apps/web/tsconfig.json --noEmit",
+    "test": "vitest run --config tests/vitest.config.ts",
+    "test:watch": "vitest --config tests/vitest.config.ts",
+    "test:e2e": "vitest run --config tests/vitest.e2e.config.ts",
+    "perf": "vitest run --config tests/vitest.perf.config.ts --reporter verbose",
+    "ci": "npm run typecheck && npm run test",
+    "docker:build": "docker build -t scketch3dweb-mcp:local -f Dockerfile .",
+    "docker:run": "docker compose up -d",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "desktop:dev": "node apps/desktop/dev.mjs",
+    "desktop:web:build": "node apps/desktop/build-web.mjs",
+    "desktop:pack": "npm run desktop:web:build && electron-builder --dir --config apps/desktop/electron-builder.yml",
+    "desktop:dist": "npm run desktop:web:build && electron-builder --config apps/desktop/electron-builder.yml",
+    "mcp:scketch3dweb": "node scripts/scketch3dweb-mcp-server.mjs"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.1.8",
+    "@types/three": "^0.184.1",
+    "brepjs": "^18.118.0",
+    "clsx": "^2.1.1",
+    "electron-updater": "^6.8.9",
+    "fflate": "^0.8.2",
+    "lucide-react": "^0.511.0",
+    "manifold-3d": "^3.5.0",
+    "next": "16.4.3",
+    "occt-wasm": "^3.6.1",
+    "react": "^19.1.0",
+    "react-colorful": "^5.8.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.3.0",
+    "tailwindcss": "^4.1.8",
+    "three": "^0.184.0",
+    "three-bvh-csg": "^0.0.18",
+    "three-mesh-bvh": "^0.9.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
+    "js-yaml": "^4.3.1",
+    "playwright-core": "1.64.1",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.8"
+  },
+  "engines": {
+    "node": ">=26.12.1 <27"
+  },
+  "overrides": {
+    "postcss": "8.5.32"
+  }
+}

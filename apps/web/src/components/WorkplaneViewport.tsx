@@ -2955,7 +2955,7 @@ export function WorkplaneViewport({
     };
     const readFaces = (): FaceAnnotationsSnapshot => ({ available: true, labelsVisible: faceLabelsVisibleRef.current, annotations: shapesRef.current.flatMap(shape => (shape.faceAnnotations ?? []).map(annotation => {
       const mesh = shapeMesh(shape.id, annotation.geometryKey);
-      const reading = mesh ? measureAnnotatedFace(mesh, annotation) : { id: annotation.id, name: annotation.name, status: "stale" as const, reason: "Геометрия изменилась или объект недоступен. Укажите грань заново." };
+      const reading = mesh ? measureAnnotatedFace(mesh, annotation) : { id: annotation.id, name: annotation.name, status: "stale" as const, reason: "Geometry has changed or the object is unavailable. Select the face again." };
       const screen = reading.status === "valid" ? projectToScreen(new THREE.Vector3(...reading.point as [number,number,number]), state) : undefined;
       const projected = reading.status === "valid" ? new THREE.Vector3(...reading.point as [number,number,number]).project(state.camera) : null;
       return { ...reading, shapeId: shape.id, shapeName: shape.name, ...(screen ? { screen: { x: screen.x, y: screen.y, visible: !!projected && projected.z > -1 && projected.z < 1 } } : {}) };
@@ -2964,12 +2964,12 @@ export function WorkplaneViewport({
     window.scketch3dwebReadHoleEditor = () => {const model=holeModelRef.current;return{active:Boolean(holeModeRef.current),shapeId:holeModeRef.current,selectedId:holeSelectedRef.current,drawing:holeSketchRef.current?{points:holeSketchRef.current.points,edit:holeSketchRef.current.edit}:null,profiles:model?.profiles.map(({rimA,rimB,...rest})=>rest)??[]};};
     window.scketch3dwebReadSelectedHole = () => {
       const model=holeModelRef.current,profile=model?.profiles.find(p=>p.id===holeSelectedRef.current),shape=shapesRef.current.find(s=>s.id===holeModeRef.current),object=shape&&findShapeObject(state,shape.id);
-      if(profile&&shape&&object){const world=(p:number[])=>object.localToWorld(new THREE.Vector3(p[0],p[1]-shape.height/2,p[2]));const at=(value:number)=>world(new THREE.Vector3().setComponent(profile.axis,value).setComponent(profile.u,profile.centerU).setComponent(profile.v,profile.centerV).toArray());const lower=at(profile.lower),upper=at(profile.upper),nearUpper=upper.distanceToSquared(state.camera.position)<lower.distanceToSquared(state.camera.position),center=nearUpper?upper:lower;const normal=new THREE.Vector3().setComponent(profile.axis,1).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(object.matrixWorld));return{shapeId:shape.id,status:profile.kind,kind:profile.kind,diameterMm:profile.kind==='circle'?profile.width:null,widthMm:profile.width,heightMm:profile.height,center:center.toArray(),normal:normal.toArray(),rim:(nearUpper?profile.rimB:profile.rimA).map(p=>world(p).toArray()),label:profile.kind==='circle'?`⌀ ${profile.width.toFixed(2)} мм`:`${profile.width.toFixed(2)} × ${profile.height.toFixed(2)} мм`};}
+      if(profile&&shape&&object){const world=(p:number[])=>object.localToWorld(new THREE.Vector3(p[0],p[1]-shape.height/2,p[2]));const at=(value:number)=>world(new THREE.Vector3().setComponent(profile.axis,value).setComponent(profile.u,profile.centerU).setComponent(profile.v,profile.centerV).toArray());const lower=at(profile.lower),upper=at(profile.upper),nearUpper=upper.distanceToSquared(state.camera.position)<lower.distanceToSquared(state.camera.position),center=nearUpper?upper:lower;const normal=new THREE.Vector3().setComponent(profile.axis,1).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(object.matrixWorld));return{shapeId:shape.id,status:profile.kind,kind:profile.kind,diameterMm:profile.kind==='circle'?profile.width:null,widthMm:profile.width,heightMm:profile.height,center:center.toArray(),normal:normal.toArray(),rim:(nearUpper?profile.rimB:profile.rimA).map(p=>world(p).toArray()),label:profile.kind==='circle'?`⌀ ${profile.width.toFixed(2)} mm`:`${profile.width.toFixed(2)} × ${profile.height.toFixed(2)} mm`};}
 
       const selected = selectedHoleRef.current;
       if (!selected) return null;
       const mesh = shapeMesh(selected.shapeId);
-      if (!mesh || mesh.geometry !== selected.geometry) return { shapeId: selected.shapeId, status: "stale", reason: "Геометрия изменилась, выберите отверстие заново" };
+      if (!mesh || mesh.geometry !== selected.geometry) return { shapeId: selected.shapeId, status: "stale", reason: "Geometry has changed. Select the hole again." };
       return { shapeId: selected.shapeId, ...measureCircularHole(mesh, selected.hole) };
     };
     const annotationTimer = window.setInterval(() => {
@@ -4471,7 +4471,7 @@ export function WorkplaneViewport({
     const hit = state.raycaster.intersectObjects(state.shapeLayer.children,true).find(h=>h.object instanceof THREE.Mesh && h.face && typeof h.object.userData.shapeId === "string");
     if (!hit || hit.faceIndex == null) {
       if (hover) clearFaceHighlight();
-      else setFaceError("Нажмите на поверхность модели");
+      else setFaceError("Click the model surface.");
       return;
     }
     try {
@@ -4483,7 +4483,7 @@ export function WorkplaneViewport({
         : annotatePlanarFace(surface, hit.faceIndex, hit.point);
       if(!hover && floorPickRef.current) {
         const shape=shapesRef.current.find(s=>s.id===floorPickRef.current);
-        if(!shape || shape.id!==hit.object.userData.shapeId)throw new Error("Нажмите на грань выбранной детали.");
+        if(!shape || shape.id!==hit.object.userData.shapeId)throw new Error("Click a face of the selected part.");
         const object=findShapeObject(state,shape.id);if(!object)return;
         const normal=new THREE.Vector3(...annotation.localNormal).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(surface.matrixWorld));
         const patch=floorRotation(shape,object,0,normal,hit.point);onUpdateShape(shape.id,patch);setFloorPickId(null);floorPickRef.current=null;setFaceError("");clearFaceHighlight();return;
@@ -5410,7 +5410,7 @@ export function WorkplaneViewport({
   const applyHole=async(edit:HoleEdit|null)=>{
     if(holeBusyRef.current)return;const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===holeModeRef.current),model=holeModelRef.current,object=state&&shape&&findShapeObject(state,shape.id);if(!shape||!model||!object)return;
     const fingerprint=meshReplacementFingerprint(shape);holeBusyRef.current=true;setHoleBusy(true);setHoleError("");
-    try{const old=model.profiles.find(p=>p.id===holeSelectedRef.current)??null;if(!old&&!edit)return;const runtime=await getManifoldRuntime();const updated=await changeMeshHole(shape,object,model,old,edit,runtime);const current=shapesRef.current.find(s=>s.id===shape.id);if(!current||meshReplacementFingerprint(current)!==fingerprint)throw new Error("Деталь изменилась во время расчёта. Повторите действие.");holePendingSelectionRef.current=edit;setHoleDraft(null);setHolePlacement(null);holeSketchRef.current=null;setHoleDrawWorld([]);onUpdateShape(shape.id,updated);}catch(e){setHoleError(e instanceof Error?e.message:String(e));}finally{holeBusyRef.current=false;setHoleBusy(false);}
+    try{const old=model.profiles.find(p=>p.id===holeSelectedRef.current)??null;if(!old&&!edit)return;const runtime=await getManifoldRuntime();const updated=await changeMeshHole(shape,object,model,old,edit,runtime);const current=shapesRef.current.find(s=>s.id===shape.id);if(!current||meshReplacementFingerprint(current)!==fingerprint)throw new Error("The part changed during calculation. Try again.");holePendingSelectionRef.current=edit;setHoleDraft(null);setHolePlacement(null);holeSketchRef.current=null;setHoleDrawWorld([]);onUpdateShape(shape.id,updated);}catch(e){setHoleError(e instanceof Error?e.message:String(e));}finally{holeBusyRef.current=false;setHoleBusy(false);}
   };holeApplyRef.current=edit=>void applyHole(edit);
   holePointerRef.current=(clientX,clientY,hover)=>{
     if(holeBusyRef.current)return;const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===holeModeRef.current),model=holeModelRef.current,object=state&&shape&&findShapeObject(state,shape.id);if(!state||!shape||!model||!object)return;
@@ -5428,9 +5428,9 @@ export function WorkplaneViewport({
     try{
       const placement=holePlacementRef.current;
       if(!placement){const front=state.raycaster.intersectObject(object,true).find(h=>h.object instanceof THREE.Mesh&&h.object.userData.shapeSurface);let selected:{id:string;distance:number}|null=null;for(const profile of model.profiles)for(const rim of [profile.rimA,profile.rimB]){const points=rim.map(world),normal=new THREE.Vector3().setComponent(profile.axis,1).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(object.matrixWorld)),plane=new THREE.Plane().setFromNormalAndCoplanarPoint(normal,points[0]),hit=state.raycaster.ray.intersectPlane(plane,new THREE.Vector3());if(!hit)continue;const p=base(hit),poly=rim.map(q=>[q[profile.u],q[profile.v]]);let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>p.getComponent(profile.v))!==(b[1]>p.getComponent(profile.v))&&p.getComponent(profile.u)<(b[0]-a[0])*(p.getComponent(profile.v)-a[1])/(b[1]-a[1])+a[0])inside=!inside;}const distance=hit.distanceTo(state.raycaster.ray.origin);if(inside&&(!front||distance<=front.distance+.2)&&(!selected||distance<selected.distance))selected={id:profile.id,distance};}if(selected){setHoleSelected(selected.id);setHoleDraft(null);setHoleError("");}return;}
-      const hit=state.raycaster.intersectObject(object,true).find(h=>h.object instanceof THREE.Mesh&&h.face&&h.object.userData.shapeSurface);if(!hit||!hit.face)throw new Error("Нажмите на плоскую стенку детали.");
-      const normal=hit.face.normal.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld));const localNormal=normal.clone().applyMatrix3(new THREE.Matrix3().setFromMatrix4(object.matrixWorld).transpose()).normalize();const axis=localNormal.toArray().reduce((best,n,i,a)=>Math.abs(n)>Math.abs(a[best])?i:best,0);if(Math.abs(localNormal.getComponent(axis))<.99999)throw new Error("Пока поддерживаются плоские стенки вдоль локальных осей детали.");
-      const ray=new THREE.Raycaster(hit.point.clone().addScaledVector(normal,-.005),normal.clone().negate());ray.layers.set(RENDER_LAYER_SHAPES);const other=ray.intersectObject(object,true).find(h=>h.object instanceof THREE.Mesh&&h.object.userData.shapeSurface&&h.distance>.005);if(!other)throw new Error("Не найдена противоположная стенка.");const a=base(hit.point),b=base(other.point),[u,v]=[0,1,2].filter(i=>i!==axis);const edit:HoleEdit={kind:placement,axis,lower:Math.min(a.getComponent(axis),b.getComponent(axis)),upper:Math.max(a.getComponent(axis),b.getComponent(axis)),centerU:a.getComponent(u),centerV:a.getComponent(v),width:4,height:4};
+      const hit=state.raycaster.intersectObject(object,true).find(h=>h.object instanceof THREE.Mesh&&h.face&&h.object.userData.shapeSurface);if(!hit||!hit.face)throw new Error("Click a planar wall of the part.");
+      const normal=hit.face.normal.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld));const localNormal=normal.clone().applyMatrix3(new THREE.Matrix3().setFromMatrix4(object.matrixWorld).transpose()).normalize();const axis=localNormal.toArray().reduce((best,n,i,a)=>Math.abs(n)>Math.abs(a[best])?i:best,0);if(Math.abs(localNormal.getComponent(axis))<.99999)throw new Error("Only planar walls aligned with the local part axes are currently supported.");
+      const ray=new THREE.Raycaster(hit.point.clone().addScaledVector(normal,-.005),normal.clone().negate());ray.layers.set(RENDER_LAYER_SHAPES);const other=ray.intersectObject(object,true).find(h=>h.object instanceof THREE.Mesh&&h.object.userData.shapeSurface&&h.distance>.005);if(!other)throw new Error("The opposite wall was not found.");const a=base(hit.point),b=base(other.point),[u,v]=[0,1,2].filter(i=>i!==axis);const edit:HoleEdit={kind:placement,axis,lower:Math.min(a.getComponent(axis),b.getComponent(axis)),upper:Math.max(a.getComponent(axis),b.getComponent(axis)),centerU:a.getComponent(u),centerV:a.getComponent(v),width:4,height:4};
       if(placement==='polygon'){holeSketchRef.current={edit,plane:new THREE.Plane().setFromNormalAndCoplanarPoint(normal,hit.point),points:[[edit.centerU,edit.centerV]]};setHoleDrawWorld([hit.point.toArray()]);}else{setHoleDraft(edit);setHolePlacement(null);}setHoleSelected(null);setHoleError("");
     }catch(e){setHoleError(e instanceof Error?e.message:String(e));}
   };
@@ -5449,7 +5449,7 @@ export function WorkplaneViewport({
     } finally {if(run===modelingRunRef.current)setModelingBusy(false);}
   };
   const showDeformation = useCallback((updated:WorkplaneShape,preview:boolean) => {
-    const state=threeRef.current;if(!state)throw new Error("Редактор ещё не готов.");
+    const state=threeRef.current;if(!state)throw new Error("The editor is not ready yet.");
     const shape=updated;
     clearStretchPreview(false);
     if (preview) {
@@ -5458,13 +5458,13 @@ export function WorkplaneViewport({
       setObjectRenderLayer(ghost, RENDER_LAYER_PREVIEWS); state.scene.add(ghost); stretchPreviewRef.current = ghost; state.needsRender=true;
     } else { clearMoveDimensions(); onUpdateShape(shape.id, updated); }
   }, [onUpdateShape, clearMoveDimensions, clearStretchPreview]);
-  const editStretchShape=async(options:AxialStretchOptions,preview:boolean)=>{const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===selectedShape?.id),object=state&&shape&&findShapeObject(state,shape.id);if(!shape||!object)throw new Error("Выберите деталь.");showDeformation(await calculateDeformation(shape,object,{kind:"stretch",options}),preview);};
+  const editStretchShape=async(options:AxialStretchOptions,preview:boolean)=>{const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===selectedShape?.id),object=state&&shape&&findShapeObject(state,shape.id);if(!shape||!object)throw new Error("Select a part.");showDeformation(await calculateDeformation(shape,object,{kind:"stretch",options}),preview);};
   const offsetBaselineRef=useRef<{key:string;shape:WorkplaneShape;expected:string}|null>(null);
   const [offsetBaseConnections,setOffsetBaseConnections]=useState<EndConnection[]|null>(null);
   const [offsetSessionVersion,setOffsetSessionVersion]=useState(0);
   useEffect(()=>{const baseline=offsetBaselineRef.current;if(!baseline)return;const current=shapes.find(s=>s.id===baseline.shape.id);if(selectedShape?.id!==baseline.shape.id||!current||meshReplacementFingerprint(current)!==baseline.expected){offsetBaselineRef.current=null;setOffsetBaseConnections(null);setOffsetSessionVersion(v=>v+1);}},[shapes,selectedShape?.id]);
   const editEndOffset=async(options:ConnectionOffsetOptions,preview:boolean)=>{
-    const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===selectedShape?.id),object=state&&shape&&findShapeObject(state,shape.id);if(!shape||!object)throw new Error("Выберите деталь.");
+    const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===selectedShape?.id),object=state&&shape&&findShapeObject(state,shape.id);if(!shape||!object)throw new Error("Select a part.");
     const key=[shape.id,options.fixedFaceId,options.movingFaceId].join('|'),fingerprint=meshReplacementFingerprint(shape);
     let baseline=offsetBaselineRef.current;
     if(!baseline||baseline.key!==key||baseline.expected!==fingerprint){baseline={key,shape,expected:fingerprint};offsetBaselineRef.current=baseline;setOffsetBaseConnections(readEndConnections(shape,object));}
@@ -5477,8 +5477,8 @@ export function WorkplaneViewport({
   const resetEndOffset=(fixedFaceId:string,movingFaceId:string)=>{
     clearStretchPreview();const baseline=offsetBaselineRef.current,current=shapesRef.current.find(s=>s.id===selectedShape?.id);
     if(!baseline||baseline.key!==[current?.id,fixedFaceId,movingFaceId].join('|'))return;
-    if(!current||meshReplacementFingerprint(current)!==baseline.expected)throw new Error("Деталь изменилась. Начните новое смещение от её текущего положения.");
-    if(current.locked)throw new Error("Сначала разблокируйте деталь.");
+    if(!current||meshReplacementFingerprint(current)!==baseline.expected)throw new Error("The part has changed. Start a new offset from its current position.");
+    if(current.locked)throw new Error("Unlock the part first.");
     const original=meshReplacementFingerprint(baseline.shape);if(original===baseline.expected)return;
     baseline.expected=original;const restored={...Object.fromEntries(Object.keys(current).filter(key=>!(key in baseline.shape)).map(key=>[key,undefined])),...baseline.shape};showDeformation(restored,false);
   };
@@ -5499,21 +5499,21 @@ export function WorkplaneViewport({
     rulerStretchPendingRef.current=edit;
     try {
       const segment = rulerModelRef.current.segments.find(s => s.id === edit.segmentId);
-      if (!segment || segment.edge) throw new Error("Для изменения размера поставьте рулетку между двумя точками, без режима длины ребра.");
+      if (!segment || segment.edge) throw new Error("To resize, place the ruler between two points without edge-length mode.");
       const a = rulerModelRef.current.points.find(p => p.id === segment.startId), b = rulerModelRef.current.points.find(p => p.id === segment.endId);
-      if (!a?.attachment || !b?.attachment || a.attachment.shapeId !== b.attachment.shapeId) throw new Error("Обе точки должны быть прикреплены к одной детали.");
+      if (!a?.attachment || !b?.attachment || a.attachment.shapeId !== b.attachment.shapeId) throw new Error("Both points must be attached to the same part.");
       const shape = shapesRef.current.find(s => s.id === a.attachment!.shapeId), object = shape && findShapeObject(state,shape.id);
-      if (!shape || !object) throw new Error("Деталь не найдена.");
+      if (!shape || !object) throw new Error("Part not found.");
       const pa = object.worldToLocal(rulerPointWorld(state,a)), pb = object.worldToLocal(rulerPointWorld(state,b)), delta = pb.clone().sub(pa);
       const axisNames = ["x","y","z"] as const;
       const dimensions = [shapeWidth(shape),shape.height,shapeDepth(shape)];
       const outerAxes = [0,1,2].filter(i=>Math.abs(Math.min(pa.getComponent(i),pb.getComponent(i))+dimensions[i]/2)<=.05 && Math.abs(Math.max(pa.getComponent(i),pb.getComponent(i))-dimensions[i]/2)<=.05);
       const axis = stretchAxis === "auto" ? outerAxes.sort((a,b)=>Math.abs(delta.getComponent(b))-Math.abs(delta.getComponent(a)))[0] ?? 0 : axisNames.indexOf(stretchAxis);
       const length = dimensions[axis];
-      if (Math.abs(Math.min(pa.getComponent(axis),pb.getComponent(axis)) + length/2) > .05 || Math.abs(Math.max(pa.getComponent(axis),pb.getComponent(axis)) - length/2) > .05) throw new Error("Поставьте точки на противоположные крайние грани выбранной оси. Для внутренних точек используйте поля «Растянуть корпус».");
+      if (Math.abs(Math.min(pa.getComponent(axis),pb.getComponent(axis)) + length/2) > .05 || Math.abs(Math.max(pa.getComponent(axis),pb.getComponent(axis)) - length/2) > .05) throw new Error("Place points on the opposite outer faces of the selected axis. For internal points, use the Stretch body fields.");
       const desired = edit.value.trim() ? Number(edit.value.replace(",",".")) : NaN;
       const perpendicular = delta.lengthSq() - delta.getComponent(axis)**2;
-      if (!Number.isFinite(desired) || desired <= 0 || desired**2 <= perpendicular) throw new Error("Размер должен быть положительным и больше поперечного смещения точек.");
+      if (!Number.isFinite(desired) || desired <= 0 || desired**2 <= perpendicular) throw new Error("The size must be positive and greater than the transverse offset of the points.");
       if (Math.abs(desired - delta.length()) < 0.0001) { stretchEditRef.current=null;setStretchEdit(null);return; }
       const target = Math.sqrt(desired**2 - perpendicular);
       const options: AxialStretchOptions = {axis:axisNames[axis],target,keepStart:stretchStart.trim()?Number(stretchStart.replace(",",".")):NaN,keepEnd:stretchEnd.trim()?Number(stretchEnd.replace(",",".")):NaN,anchor:stretchAnchor};
@@ -5812,8 +5812,8 @@ export function WorkplaneViewport({
               </div>}
             </div>
             <div className="ruler-control-group">
-              <button aria-label="Заливка грани" title="Заливка грани" aria-pressed={paintMode} className={paintMode ? "active" : ""} onClick={() => {setCameraPanMode(false);setFaceMode(false);setFaceDraft(null);setRulerActive(false);setRulerDeleteMode(false);rulerDeleteModeRef.current=false;setRulerMoveMode(false);rulerMoveModeRef.current=false;onWorkplaneModeChange(false);setPaintMode(active=>!active);setFaceError("");}}><PaintBucket size={25} strokeWidth={2.1} /></button>
-              {paintMode && <div className="face-paint-popover"><strong>Заливка грани</strong><label>Цвет<input type="color" aria-label="Цвет грани" value={paintColor} onChange={event=>{setPaintColor(event.target.value);setPaintErase(false);}} /></label><button type="button" aria-pressed={paintErase} onClick={()=>setPaintErase(active=>!active)}>{paintErase ? "Стирание включено" : "Стереть заливку"}</button><span>Нажмите на плоскую грань. Esc — выход.</span>{faceError && <span role="alert">{faceError}</span>}</div>}
+              <L><button aria-label="Paint face" title="Paint face" aria-pressed={paintMode} className={paintMode ? "active" : ""} onClick={() => {setCameraPanMode(false);setFaceMode(false);setFaceDraft(null);setRulerActive(false);setRulerDeleteMode(false);rulerDeleteModeRef.current=false;setRulerMoveMode(false);rulerMoveModeRef.current=false;onWorkplaneModeChange(false);setPaintMode(active=>!active);setFaceError("");}}><PaintBucket size={25} strokeWidth={2.1} /></button></L>
+              {paintMode && <div className="face-paint-popover"><strong><T text="Paint face" /></strong><label><T text="Color" /><L><input type="color" aria-label="Face color" value={paintColor} onChange={event=>{setPaintColor(event.target.value);setPaintErase(false);}} /></L></label><button type="button" aria-pressed={paintErase} onClick={()=>setPaintErase(active=>!active)}><T text={paintErase ? "Erasing enabled" : "Erase face paint"} /></button><span><T text="Click a planar face. Esc to exit." /></span>{faceError && <span role="alert"><T text={faceError} /></span>}</div>}
             </div>
             <div className="ruler-control-group">
               <L><button
@@ -5930,8 +5930,8 @@ export function WorkplaneViewport({
       </section></L>
 
       {!modifierActive ? (
-        <div className="workplane-right-sidebar" aria-label="Параметры объекта и метки граней">
-        <PlasticEstimatorPanel open={plasticOpen} onClose={()=>setPlasticOpen(false)} shapes={shapes} selectedIds={selectedIds} onCapture={scope=>{const state=threeRef.current;if(!state)throw new Error("Редактор ещё не готов.");return capturePlasticGeometry(shapesRef.current,selectedIdsRef.current,id=>findShapeObject(state,id),scope);}}/>
+        <L><div className="workplane-right-sidebar" aria-label="Object properties and face labels">
+        <PlasticEstimatorPanel open={plasticOpen} onClose={()=>setPlasticOpen(false)} shapes={shapes} selectedIds={selectedIds} onCapture={scope=>{const state=threeRef.current;if(!state)throw new Error("The editor is not ready yet.");return capturePlasticGeometry(shapesRef.current,selectedIdsRef.current,id=>findShapeObject(state,id),scope);}}/>
         <SceneObjectsPanel shapes={shapes} selectedIds={selectedIds} onUpdate={onUpdateShape} onSelect={(id,toggle)=>{setCreationMode(false);creationPointsRef.current=[];setCreationPreview([]);setRulerActive(false);setRulerMoveMode(false);rulerMoveModeRef.current=false;setRulerDeleteMode(false);rulerDeleteModeRef.current=false;setFaceMode(false);setPaintMode(false);setStretchMeasureMode(false);onSelectShape(id,toggle?"toggle":"replace");}}/>
       {selectedShape && !modifierActive && !rulerMode && !rulerDeleteMode && !rulerMoveMode ? (
         <ShapeInspector
@@ -5967,34 +5967,34 @@ export function WorkplaneViewport({
           onInteractionActiveChange={onInteractionActiveChange}
         />
       ) : null}
-      <aside className="face-annotations-panel" aria-label="Метки граней">
+      <L><aside className="face-annotations-panel" aria-label="Face labels">
         <div className={`property-card ${facePanelOpen ? "" : "collapsed"}`}>
           <div className="face-annotation-header">
           <button type="button" className="property-card-header" aria-expanded={facePanelOpen} aria-controls="face-annotations-content" onClick={() => setFacePanelOpen(open => !open)}>
-            <span>Метки граней</span><ChevronUp className={facePanelOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} aria-hidden="true" />
+            <span><T text="Face labels" /></span><ChevronUp className={facePanelOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} aria-hidden="true" />
           </button>
-          <button type="button" className="inspector-header-icon face-label-visibility" aria-label={faceLabelsVisible ? "Скрыть метки на модели" : "Показать метки на модели"} title={faceLabelsVisible ? "Скрыть метки на модели" : "Показать метки на модели"} aria-pressed={faceLabelsVisible} onClick={() => setFaceLabelsVisible(visible => !visible)}>
+          <L><button type="button" className="inspector-header-icon face-label-visibility" aria-label={faceLabelsVisible ? "Hide labels on model" : "Show labels on model"} title={faceLabelsVisible ? "Hide labels on model" : "Show labels on model"} aria-pressed={faceLabelsVisible} onClick={() => setFaceLabelsVisible(visible => !visible)}>
             {faceLabelsVisible ? <Eye size={19} aria-hidden="true" /> : <EyeOff size={19} aria-hidden="true" />}
-          </button>
+          </button></L>
           </div>
           {facePanelOpen && <div id="face-annotations-content" className="property-list face-annotation-content">
-        <button type="button" aria-label="Метка грани" aria-pressed={faceMode} className={`inspector-action-button face-add-label ${faceMode ? "active" : ""}`} onClick={() => { setFaceMode(!faceMode); setRulerActive(false); setRulerDeleteMode(false); setRulerMoveMode(false); onWorkplaneModeChange(false); setFaceDraft(null); setFaceError(""); }}><Plus size={17} strokeWidth={2.5} aria-hidden="true" /><span>Метка грани</span></button>
-        {faceMode && <p className="face-annotation-hint">Нажмите на плоскую грань и задайте имя. Esc — выход.</p>}
-        {faceError && <p className="face-annotation-error" role="alert">{faceError}</p>}
-        {faceDraft && <p className="face-selection-status" role="status">Грань выделена. Введите имя.</p>}
+        <L><button type="button" aria-label="Face label" aria-pressed={faceMode} className={`inspector-action-button face-add-label ${faceMode ? "active" : ""}`} onClick={() => { setFaceMode(!faceMode); setRulerActive(false); setRulerDeleteMode(false); setRulerMoveMode(false); onWorkplaneModeChange(false); setFaceDraft(null); setFaceError(""); }}><Plus size={17} strokeWidth={2.5} aria-hidden="true" /><span><T text="Face label" /></span></button></L>
+        {faceMode && <p className="face-annotation-hint"><T text="Click a planar face and enter a name. Esc to exit." /></p>}
+        {faceError && <p className="face-annotation-error" role="alert"><T text={faceError} /></p>}
+        {faceDraft && <p className="face-selection-status" role="status"><T text="Face selected. Enter a name." /></p>}
         {faceDraft && <form className="face-annotation-form" onSubmit={event => { event.preventDefault(); const name=faceName.trim(); const shape=shapesRef.current.find(s=>s.id===faceDraft.shapeId); if(!name || !shape)return; onUpdateShape(shape.id,{faceAnnotations:[...(shape.faceAnnotations??[]).filter(a=>a.id!==faceDraft.annotation.id),{...faceDraft.annotation,name}]}); setFaceDraft(null);setFaceMode(false); }}>
-          <label className="text-property"><span>Имя грани</span><input autoFocus aria-label="Имя грани" value={faceName} maxLength={120} onChange={event=>setFaceName(event.target.value)} placeholder="Например: фланец вентилятора" required /></label>
-          <div className="face-form-actions"><button className="inspector-action-button" type="submit">Сохранить метку</button><button className="inspector-action-button" type="button" onClick={()=>setFaceDraft(null)}>Отмена</button></div>
+          <label className="text-property"><span><T text="Face name" /></span><L><input autoFocus aria-label="Face name" value={faceName} maxLength={120} onChange={event=>setFaceName(event.target.value)} placeholder="For example: fan flange" required /></L></label>
+          <div className="face-form-actions"><button className="inspector-action-button" type="submit"><T text="Save label" /></button><button className="inspector-action-button" type="button" onClick={()=>setFaceDraft(null)}><T text="Cancel" /></button></div>
         </form>}
         {faceReadings.map(reading=><div className="face-annotation-row" key={`${reading.shapeId}:${reading.id}`}>
-          <button className="face-annotation-select" type="button" onClick={()=>onSelectShape(reading.shapeId)}><span className="face-annotation-name">{reading.name}</span><span className="face-annotation-details">{reading.status === "valid" ? `${reading.lengthMm.toFixed(2)} × ${reading.widthMm.toFixed(2)} мм · ${reading.areaMm2.toFixed(2)} мм²` : "Привязка устарела"}</span></button>
-          <button className="inspector-header-icon" type="button" aria-label={`Переименовать ${reading.name}`} onClick={()=>{ const shape=shapesRef.current.find(s=>s.id===reading.shapeId);const annotation=shape?.faceAnnotations?.find(a=>a.id===reading.id);if(annotation){setFaceDraft({shapeId:reading.shapeId,annotation});setFaceName(annotation.name);} }}><Pencil size={16} strokeWidth={2} aria-hidden="true" /></button>
-          <button className="inspector-header-icon" type="button" aria-label={`Удалить метку ${reading.name}`} onClick={()=>{const shape=shapesRef.current.find(s=>s.id===reading.shapeId);if(shape)onUpdateShape(shape.id,{faceAnnotations:shape.faceAnnotations?.filter(a=>a.id!==reading.id)});}}><Trash2 size={16} strokeWidth={2} aria-hidden="true" /></button>
+          <button className="face-annotation-select" type="button" onClick={()=>onSelectShape(reading.shapeId)}><span className="face-annotation-name">{reading.name}</span><span className="face-annotation-details">{reading.status === "valid" ? <>{reading.lengthMm.toFixed(2)} × {reading.widthMm.toFixed(2)} <T text="mm" /> · {reading.areaMm2.toFixed(2)} <T text="mm²" /></> : <T text="Attachment is outdated" />}</span></button>
+          <L><button className="inspector-header-icon" type="button" aria-label={`Rename face label: ${reading.name}`} onClick={()=>{ const shape=shapesRef.current.find(s=>s.id===reading.shapeId);const annotation=shape?.faceAnnotations?.find(a=>a.id===reading.id);if(annotation){setFaceDraft({shapeId:reading.shapeId,annotation});setFaceName(annotation.name);} }}><Pencil size={16} strokeWidth={2} aria-hidden="true" /></button></L>
+          <L><button className="inspector-header-icon" type="button" aria-label={`Delete face label: ${reading.name}`} onClick={()=>{const shape=shapesRef.current.find(s=>s.id===reading.shapeId);if(shape)onUpdateShape(shape.id,{faceAnnotations:shape.faceAnnotations?.filter(a=>a.id!==reading.id)});}}><Trash2 size={16} strokeWidth={2} aria-hidden="true" /></button></L>
         </div>)}
           </div>}
         </div>
-      </aside>
-        </div>
+      </aside></L>
+        </div></L>
       ) : null}
 
       {!selectedShape ? (
@@ -6003,7 +6003,7 @@ export function WorkplaneViewport({
         </div>
       ) : null}
 
-      {modelingBusy&&<div className="modeling-worker-status" role="status">Расчёт геометрии…</div>}
+      {modelingBusy&&<div className="modeling-worker-status" role="status"><T text="Calculating geometry…" /></div>}
       {settingsOpen ? (
         <WorkspaceSettingsModal
           workspace={workspace}

@@ -36,6 +36,8 @@ docker compose up --build -d
 
 Open **http://127.0.0.1:31880**. On a fresh installation, create the first administrator account and keep its password safe.
 
+For a short setup and maintenance guide, see [START.md](START.md). The interface defaults to English; use **RU / EN** to change it.
+
 The setup helper creates a private `.env` with a random MCP controller token. It does not print the token or replace an existing `.env`.
 
 | Service | Local address |
@@ -138,3 +140,15 @@ Bug reports and focused pull requests are welcome. Include reproduction steps, b
 Application code is available under **MIT OR Apache-2.0**, at your option. See [LICENSE](LICENSE), [LICENSE-MIT](LICENSE-MIT), and [LICENSE-APACHE](LICENSE-APACHE).
 
 Third-party libraries and bundled assets retain their own terms. RP1 catalog assets include separate notices and license information in [apps/web/public/assets/robot-rp1](apps/web/public/assets/robot-rp1). The application license does not relicense those materials.
+
+## Star History
+
+If Scketch3Dweb is useful to you, consider giving the project a star.
+
+<a href="https://www.star-history.com/?repos=rjohny55%2FScketch3Dweb&amp;type=date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=rjohny55/Scketch3Dweb&amp;type=date&amp;theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=rjohny55/Scketch3Dweb&amp;type=date" />
+    <img alt="Scketch3Dweb star history chart" src="https://api.star-history.com/chart?repos=rjohny55/Scketch3Dweb&amp;type=date" />
+  </picture>
+</a>

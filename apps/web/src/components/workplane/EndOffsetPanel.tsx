@@ -39,7 +39,7 @@ export function EndOffsetPanel({connections,locked,onPreview,onApply,onClear,onR
  };
  const stepOffset=(axis:'vertical'|'horizontal',sign:number)=>{
   const amount=numeric(step);
-  if(!Number.isFinite(amount)||amount<=0){setError('Шаг должен быть положительным числом.');return;}
+  if(!Number.isFinite(amount)||amount<=0){setError('Step must be a positive number.');return;}
   const next=String(Number((numeric(axis==='vertical'?vertical:horizontal)+sign*amount).toFixed(6)));
   (axis==='vertical'?setVertical:setHorizontal)(next);
   void run(false,options(axis==='vertical'?next:vertical,axis==='horizontal'?next:horizontal));
@@ -79,7 +79,7 @@ export function EndOffsetPanel({connections,locked,onPreview,onApply,onClear,onR
     {preview&&<><p role="status" className="stretch-hint"><T text="Preview only. Apply to keep this change."/></p><L><button type="button" className="inspector-action-button" onClick={clear}><T text="Cancel preview"/></button></L></>}
     <p className="stretch-hint"><T text="Large offsets can reduce transition wall thickness. Check the resulting model in the slicer. Ctrl+Z restores the previous shape."/></p>
    </>}
-   {error&&<p className="face-annotation-error" role="alert">{error}</p>}
+   {error&&<p className="face-annotation-error" role="alert"><T text={error}/></p>}
   </form>}
  </div>;
 }

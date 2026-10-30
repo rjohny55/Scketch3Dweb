@@ -10,8 +10,8 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   // Match server output first; restore the preference only after hydration.
   const [language, setLanguage] = useState<Language>("en");
   useEffect(() => {
-    try { setLanguage(localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "ru"); }
-    catch { setLanguage("ru"); }
+    try { setLanguage(localStorage.getItem(STORAGE_KEY) === "ru" ? "ru" : "en"); }
+    catch { setLanguage("en"); }
   }, []);
   useEffect(() => { document.documentElement.lang = language; }, [language]);
   function change(next: Language) {

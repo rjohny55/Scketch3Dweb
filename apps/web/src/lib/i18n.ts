@@ -3,6 +3,8 @@ export type Language = "ru" | "en";
 const dictionary: Record<string, string> = russian;
 const folded = new Map(Object.entries(dictionary).map(([en, ru]) => [en.toLowerCase(), ru]));
 const patterns: [RegExp, (...groups: string[]) => string][] = [
+  [/^Rename face label: (.+)$/, (name) => `Переименовать метку грани: ${name}`],
+  [/^Delete face label: (.+)$/, (name) => `Удалить метку грани: ${name}`],
   [/^Increase (.+)$/, (label) => `Увеличить: ${dictionary[label] ?? label}`],
   [/^Decrease (.+)$/, (label) => `Уменьшить: ${dictionary[label] ?? label}`],
   [/^(\d+) min ago$/, (n) => `${n} мин. назад`],

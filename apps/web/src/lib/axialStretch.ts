@@ -3,6 +3,7 @@ import { computeBoundsTree } from "three-mesh-bvh";
 import { meshPrintReport } from "@/lib/meshPrintReport";
 import { annotatePlanarFace, faceGeometryKey } from "@/lib/faceAnnotations";
 import type { FaceAnnotation, FacePaint, WorkplaneShape } from "@/types/scketch3dweb";
+import type { RulerDeformationMap } from '@/lib/rulerDeformation';
 
 export type AxialStretchOptions = {
   axis: "x" | "y" | "z";
@@ -81,7 +82,7 @@ export function stretchTriangles(source: readonly number[], options: AxialStretc
   return { positions, sourceTriangles, mapPoint, size, nextSize, center, axis };
 }
 
-export type MeshDeformation = { positions:number[]; sourceTriangles:number[]; mapPoint:(p:Point)=>Point; nextSize:number[]; rootShift:Point };
+export type MeshDeformation = { positions:number[]; sourceTriangles:number[]; mapPoint:(p:Point)=>Point; nextSize:number[]; rootShift:Point; rulerMap?: RulerDeformationMap };
 /** Common deformation commit: preserve face bindings, paint, pose, and actual mesh geometry. */
 export function deformRenderedShape(shape: WorkplaneShape, root: THREE.Object3D, deform:(source:number[])=>MeshDeformation): WorkplaneShape {
   if (shape.locked) throw new Error("Сначала разблокируйте деталь.");
@@ -96,6 +97,7 @@ export function deformRenderedShape(shape: WorkplaneShape, root: THREE.Object3D,
   for (let i = 0; i < (index?.count ?? attr.count); i++) source.push(...new THREE.Vector3().fromBufferAttribute(attr, index ? index.getX(i) : i).applyMatrix4(toRoot).toArray());
   const result = deform(source);
   const { positions, nextSize, rootShift, mapPoint } = result;
+  if ((shape.rulerDeformations?.length ?? 0) >= 1024) throw Error('Too many deformations in one part. Export and reimport the mesh before continuing.');
   const report = (values: number[]) => meshPrintReport([{ vertices: Array.from({length:values.length/3},(_,i)=>values.slice(i*3,i*3+3) as Point), faces:Array.from({length:values.length/9},(_,i)=>[i*3,i*3+1,i*3+2]) }]);
   // Refuse an edit if Float32 rounding or triangle splitting damages a previously closed solid.
   if (report(source).basicChecksPass && !report(positions).basicChecksPass) throw new Error("Этот размер создаёт дефекты сетки. Увеличьте размер середины или измените защищённые участки.");
@@ -140,7 +142,7 @@ export function deformRenderedShape(shape: WorkplaneShape, root: THREE.Object3D,
     const shift = new THREE.Vector3(...rootShift);
     shift.applyMatrix3(new THREE.Matrix3().setFromMatrix4(root.matrixWorld));
     const worldCenter = root.getWorldPosition(new THREE.Vector3()).add(shift);
-    return { ...shape, kind: "mesh", width: nextSize[0], height: nextSize[1], depth: nextSize[2], size: Math.max(nextSize[0], nextSize[2]),
+    return { ...shape, rulerDeformations: result.rulerMap ? [...(shape.rulerDeformations ?? []), { ...result.rulerMap, sourceSize: [shape.width, shape.height, shape.depth], targetSize: nextSize as Point }] : shape.rulerDeformations, kind: "mesh", width: nextSize[0], height: nextSize[1], depth: nextSize[2], size: Math.max(nextSize[0], nextSize[2]),
       x: worldCenter.x, z: worldCenter.z, elevation: worldCenter.y - nextSize[1] / 2,
       importedMesh: { positions, baseWidth: nextSize[0], baseHeight: nextSize[1], baseDepth: nextSize[2], triangleCount: positions.length / 9, sourceFormat: "json" },
       faceAnnotations, facePaints, cadBrep: undefined, cadBrepFrame: undefined, cadPrimitiveFrame: undefined,
@@ -155,6 +157,8 @@ export function stretchShape(shape:WorkplaneShape,root:THREE.Object3D,options:Ax
   return deformRenderedShape(shape,root,source=>{
     const result=stretchTriangles(source,options),rootShift=[...result.center] as Point;
     rootShift[result.axis]+=(options.target-result.size[result.axis])*(options.anchor==="start"?.5:options.anchor==="end"?-.5:0);
-    return {...result,rootShift};
+    const direction:Point=[0,0,0],delta:Point=[0,0,0],center=[...result.center] as Point;
+    direction[result.axis]=1;delta[result.axis]=options.target-result.size[result.axis];center[result.axis]+=delta[result.axis]/2;
+    return {...result,rootShift,rulerMap:{direction,delta,center,low:result.center[result.axis]-result.size[result.axis]/2+options.keepStart,high:result.center[result.axis]+result.size[result.axis]/2-options.keepEnd}};
   });
 }

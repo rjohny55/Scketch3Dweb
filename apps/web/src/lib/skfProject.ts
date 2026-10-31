@@ -1,4 +1,5 @@
 import {restoreRulerState,type RulerState} from "@/lib/rulerState";
+import {validateRulerDeformations} from '@/lib/rulerDeformation';
 import { strFromU8, strToU8, unzip, zip, type AsyncZippable } from "fflate";
 import { editorHistoryEntry, hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { normalizePlacementWorkplane, placementWorkplaneIsBase, type PlacementWorkplane } from "@/lib/placementWorkplane";
@@ -13,7 +14,7 @@ import type { GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation,
 export const SKF_SCHEMA_ID = "com.scketch3dweb.project";
 export const SKF_FORMAT_VERSION = 2;
 export const SKF_MINIMUM_READER_VERSION = 2;
-export const SKF_CREATED_WITH_VERSION = "1.0.11";
+export const SKF_CREATED_WITH_VERSION = "1.0.12";
 export const SKF_MEDIA_TYPE = "application/vnd.scketch3dweb.project+zip";
 
 export const SKF_LIMITS = {
@@ -955,6 +956,7 @@ function validateSketchProfile(value: unknown, label: string) {
 }
 
 function validateShapeDefinition(definition: Record<string, unknown>, label: string) {
+  if (definition.rulerDeformations !== undefined) validateRulerDeformations(definition.rulerDeformations);
   const id = stringValue(definition.id, `${label}.id`);
   stringValue(definition.name, `${label}.name`);
   const kind = stringValue(definition.kind, `${label}.kind`);

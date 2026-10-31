@@ -8,6 +8,8 @@ import {computeBoundsTree} from 'three-mesh-bvh';
 import {importSkfProject} from '@/lib/skfProject';
 import {measureAnnotatedFace,faceGeometryKey} from '@/lib/faceAnnotations';
 import {meshPrintReport} from '@/lib/meshPrintReport';
+import {readEndConnections} from '@/lib/endOffset';
+import {bindRulerFace} from '@/lib/rulerFaceAnchor';
 
 const root='examples/cmp170-fan-adapter';
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
@@ -15,12 +17,12 @@ const sha=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 const arrayBuffer=(bytes:Buffer)=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength) as ArrayBuffer;
 
 describe('CMP 170 fitted fan adapter demo',()=>{
- it('ships the final fitted geometry without changing the STL triangle payload',()=>{
+ it('ships the current owner-fitted geometry with verified checksums',()=>{
   const bytes=fs.readFileSync(path.join(root,manifest.files.mesh));
   expect(sha(bytes)).toBe(manifest.sha256.mesh);
   expect(sha(bytes.subarray(80))).toBe(manifest.geometrySha256);
-  expect(bytes.readUInt32LE(80)).toBe(37256);
-  expect(bytes.length).toBe(84+50*37256);
+  expect(bytes.readUInt32LE(80)).toBe(manifest.triangleCount);
+  expect(bytes.length).toBe(84+50*manifest.triangleCount);
  });
  it('has a closed, consistently wound mesh with the documented dimensions',()=>{
   const geometry=new STLLoader().parse(arrayBuffer(fs.readFileSync(path.join(root,manifest.files.mesh))));
@@ -39,6 +41,8 @@ describe('CMP 170 fitted fan adapter demo',()=>{
   expect(project.projectName).toBe(manifest.name);
   expect(project.shapes).toHaveLength(1);
   const shape=project.shapes[0];
+  expect(shape.rotationX).toBe(90);
+  expect(shape.width).toBe(53);
   expect(shape.locked).toBe(false);
   expect(shape.faceAnnotations?.map(a=>a.name)).toEqual(['NVIDIA CMP 170 flange','120 mm fan flange']);
   const geometry=new THREE.BufferGeometry();
@@ -50,10 +54,18 @@ describe('CMP 170 fitted fan adapter demo',()=>{
   computeBoundsTree.call(geometry,{targetLeafSize:12});
   expect(faceGeometryKey(geometry)).toBe(shape.faceAnnotations![0].geometryKey);
   expect(shape.faceAnnotations!.every(a=>measureAnnotatedFace(mesh,a).status==='valid')).toBe(true);
-  expect(project.rulers.segments).toHaveLength(1);
+  expect(project.rulers.segments).toHaveLength(manifest.rulerCount);
   const [a,b]=project.rulers.points;
-  expect(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)).toBeCloseTo(74.4,7);
+  expect(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)).toBeCloseTo(manifest.rulerDistanceMm,7);
   expect(a.attachment?.shapeId).toBe(shape.id);
   expect(b.attachment?.shapeId).toBe(shape.id);
+  mesh.position.y=-shape.height/2;
+  mesh.userData.shapeSurface=true;
+  const object=new THREE.Group();object.add(mesh);object.updateMatrixWorld(true);
+  const connections=readEndConnections(shape,object);
+  for(const point of [a,b]){
+    const local=new THREE.Vector3(...point.attachment!.normalized).multiply(new THREE.Vector3(shape.width!,shape.height,shape.depth!));
+    expect(bindRulerFace(local,connections)).toBeDefined();
+  }
  });
 });

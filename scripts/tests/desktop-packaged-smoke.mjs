@@ -50,7 +50,8 @@ try {
   await page.waitForFunction(() => typeof window.scketch3dwebReadFaceAnnotations === 'function' && window.scketch3dwebReadFaceAnnotations().annotations.length === 2);
   const demo = await page.evaluate(() => ({ faces: window.scketch3dwebReadFaceAnnotations(), rulers: window.scketch3dwebReadRulerMeasurements() }));
   if (demo.faces.annotations.some(face => face.status !== 'valid' || face.shapeId !== 'cmp170-fan-adapter-mesh')) throw Error('Packaged flange demo is invalid');
-  if (Math.abs(demo.rulers.segments[0]?.lengthMm - 74.4) > 0.001) throw Error('Packaged ruler is wrong');
+  const demoManifest=JSON.parse(fs.readFileSync('examples/cmp170-fan-adapter/manifest.json','utf8'));
+  if (Math.abs(demo.rulers.segments[0]?.lengthMm - demoManifest.rulerDistanceMm) > 0.001 || demo.rulers.segmentCount!==demoManifest.rulerCount) throw Error('Packaged ruler is wrong');
   for (const file of ['preview.png', 'cmp170-120mm-fan-adapter.stl']) {
     if (!(await page.request.get(`${base}/assets/demos/cmp170-fan-adapter/${file}`)).ok()) throw Error('Missing packaged demo asset: ' + file);
   }
@@ -63,7 +64,7 @@ try {
   application = app;
   const login = await page.request.post(`${base}/api/auth`, { data: { action: "login", username: "desktop-smoke", password } });
   if (!login.ok()) throw Error(`Account did not survive restart: ${login.status()}`);
-  console.log(JSON.stringify({ version, accountSetup: "ok", userDataStorage: "ok", githubLink: "ok", editor: "ok", flangeDemo: "ok", rulerMm: 74.4, webgl: "ok", restartAndLogin: "ok" }));
+  console.log(JSON.stringify({ version, accountSetup: "ok", userDataStorage: "ok", githubLink: "ok", editor: "ok", flangeDemo: "ok", rulerMm: demoManifest.rulerDistanceMm, webgl: "ok", restartAndLogin: "ok" }));
 } finally {
   await application?.close();
 }

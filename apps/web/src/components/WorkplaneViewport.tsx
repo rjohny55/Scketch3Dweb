@@ -1,5 +1,6 @@
 "use client";
-import {pickRulerLine} from "@/lib/rulerEdgePicking";
+import {pickRulerLine,rulerSurfaceEdges} from "@/lib/rulerEdgePicking";
+import {layoutRulerLabels,type RulerLabelBox} from "@/lib/rulerLabelLayout";
 import {frameCameraBounds} from "@/lib/cameraFrame";
 import {Calculator} from "lucide-react";
 import {PlasticEstimatorPanel} from "@/components/workplane/PlasticEstimatorPanel";
@@ -9,6 +10,8 @@ import {capturePlasticGeometry} from "@/lib/plasticGeometry";
 import {ModelingWorkerClient,canceledModelingJob} from "@/lib/modelingWorkerClient";
 import {snapshotModelingJob,type DeformationOperation,type ModelingResult} from "@/lib/modelingWorkerProtocol";
 import {restoreRulerState,type RulerState,type RulerPoint,type RulerAttachment,type RulerEdgeAttachment,type RulerSegment} from "@/lib/rulerState";
+import { bindRulerFace, resolveRulerFace } from "@/lib/rulerFaceAnchor";
+import { deformRulerPoint, undeformRulerPoint, deformRulerPolyline } from '@/lib/rulerDeformation';
 
 import {createPortal} from "react-dom";
 import {ModelingQuickTools,type InspectorSectionRequest,type QuickModelingAction} from "@/components/workplane/ModelingQuickTools";
@@ -25,7 +28,7 @@ import { meshReplacementFingerprint } from "@/lib/replaceImportedMesh";
 import { floorRotation } from "@/lib/floorRotation";
 import { stretchShape, type AxialStretchOptions } from "@/lib/axialStretch";
 import { RightDoubleClick } from "@/lib/rightDoubleClick";
-import type { TransientHistoryAction } from "@/lib/sessionActionHistory";
+import {historyMetadata,withHistoryMetadata,type TransientHistoryAction} from "@/lib/sessionActionHistory";
 import { createFacePaint } from "@/lib/facePaint";
 import { createFaceSelectionHighlight, disposeFaceSelectionHighlight } from "@/lib/faceSelectionHighlight";
 import { annotatePlanarFace, faceGeometryKey, measureAnnotatedFace, type FaceAnnotationsSnapshot, type FaceMeasurement } from "@/lib/faceAnnotations";
@@ -33,7 +36,7 @@ import { detectCircularHoles, measureCircularHole, type CircularHole } from "@/l
 import type { FaceAnnotation } from "@/types/scketch3dweb";
 import { armCameraPanReturn, cameraPanReturnBaseline, updateCameraPanReturn, type CameraPanReturn } from "@/lib/cameraPanReturn";
 import { snapRulerAxisToSurface } from "@/lib/rulerAxisSnap";
-import { rulerMeasurementLabel, rulerMeasurementsSnapshot, type RulerMeasurementsSnapshot } from "@/lib/rulerMeasurements";
+import { rulerMeasurementLabel, rulerMeasurementsSnapshot, rulerBubblePosition, type RulerMeasurementsSnapshot } from "@/lib/rulerMeasurements";
 import { ArrowLeftRight, ChevronLeft, ChevronRight, ChevronUp, Eye, EyeOff, Move, PaintBucket, Home, Minus, MousePointer2, PanelsTopLeft, Pencil, Plus, Ruler, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
 import * as THREE from "three";
@@ -415,12 +418,14 @@ type RulerModel = {
 
 type RulerOverlayState = {
   points: Array<RulerPoint & { screenX: number; screenY: number }>;
-  segments: Array<RulerSegment & { x1: number; y1: number; x2: number; y2: number; screenPoints?: string; labelX: number; labelY: number; label: string }>;
-  hover: { screenX: number; screenY: number; edgeScreenPoints?: string } | null;
-  preview: { x1: number; y1: number; x2: number; y2: number; labelX: number; labelY: number; label: string } | null;
+  segments: Array<RulerSegment & { x1: number; y1: number; x2: number; y2: number; screenPoints?: string; labelX: number; labelY: number; label: string; bubblePosition: number }>;
+  hover: { screenX: number; screenY: number; edgeScreenPoints?: string; corner?: boolean; edge?: boolean } | null;
+  preview: { x1: number; y1: number; x2: number; y2: number; labelX: number; labelY: number; label: string; bubblePosition: number } | null;
 };
 
 type RulerCandidate = {
+  surfaceEdgeSnap?: boolean;
+  surfaceHit?: { surface: THREE.Mesh<THREE.BufferGeometry>; triangleIndex: number; point: THREE.Vector3 };
   surfacePlane?: THREE.Plane;
   x: number;
   y: number;
@@ -1065,9 +1070,30 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
   });
 }
 
+function rulerAttachmentFaces(object: THREE.Object3D): EndConnection[] {
+  const shape = object.userData.rulerShape as WorkplaneShape | undefined;
+  if (!shape?.faceAnnotations?.length) return [];
+  const cached = object.userData.rulerFaceCache;
+  if (cached?.shape === shape) return cached.faces;
+  try {
+    const faces = readEndConnections(shape, object);
+    object.userData.rulerFaceCache = { shape, faces };
+    return faces;
+  } catch { return []; }
+}
+
 function rulerAttachmentWorld(state: ThreeState, attachment: RulerAttachment) {
-  const object = findShapeObject(state, attachment.shapeId);
+  const object = state.scene.children.find(child => child.userData.rulerPreviewFor === attachment.shapeId) ?? findShapeObject(state, attachment.shapeId);
   if (!object) return null;
+  if (attachment.deformationAnchor) {
+    const shape = object.userData.rulerShape as WorkplaneShape | undefined;
+    const normalized = deformRulerPoint(attachment.deformationAnchor, shape?.rulerDeformations);
+    return object.localToWorld(new THREE.Vector3(...normalized).multiply(new THREE.Vector3(...rulerShapeDimensions(object))));
+  }
+  if (attachment.faceAnchor) {
+    const local = resolveRulerFace(attachment.faceAnchor, rulerAttachmentFaces(object));
+    if (local) return object.localToWorld(local);
+  }
   const dimensions = rulerShapeDimensions(object);
   return object.localToWorld(new THREE.Vector3(
     attachment.normalized[0] * dimensions[0],
@@ -1081,7 +1107,10 @@ function rulerAttachmentFromWorld(state: ThreeState, shapeId: string, world: THR
   if (!object) return null;
   const dimensions = rulerShapeDimensions(object);
   const local = object.worldToLocal(world.clone());
+  const faceAnchor = bindRulerFace(local, rulerAttachmentFaces(object));
   return {
+    ...(faceAnchor ? { faceAnchor } : {}),
+    deformationAnchor: undeformRulerPoint(local.toArray().map((n,i)=>n/Math.max(.001,dimensions[i])), (object.userData.rulerShape as WorkplaneShape | undefined)?.rulerDeformations),
     shapeId,
     kind,
     topologyKey: object.userData.rulerTopologyKey as string | undefined,
@@ -1108,6 +1137,13 @@ function rulerPointWorld(state: ThreeState, point: Pick<RulerPoint, "x" | "y" | 
 }
 
 function rulerEdgeWorldPoints(state: ThreeState, edge: RulerEdgeAttachment) {
+  if (edge.deformationPoints) {
+    const object = state.scene.children.find(child => child.userData.rulerPreviewFor === edge.shapeId) ?? findShapeObject(state, edge.shapeId);
+    if (!object) return [];
+    const shape = object.userData.rulerShape as WorkplaneShape | undefined;
+    const dimensions = new THREE.Vector3(...rulerShapeDimensions(object));
+    return deformRulerPolyline(edge.deformationPoints, shape?.rulerDeformations).map(p => object.localToWorld(new THREE.Vector3(...p).multiply(dimensions)));
+  }
   return edge.normalizedPoints.flatMap((normalized) => {
     const world = rulerAttachmentWorld(state, { shapeId: edge.shapeId, normalized });
     return world ? [world] : [];
@@ -1181,6 +1217,8 @@ function rulerPointToSegmentDistance(point: THREE.Vector3, start: THREE.Vector3,
 function rulerAttachmentMatchesTopology(state: ThreeState, attachment: RulerAttachment) {
   const object = findShapeObject(state, attachment.shapeId);
   if (!object) return false;
+  if (attachment.deformationAnchor && (object.userData.rulerShape as WorkplaneShape | undefined)?.rulerDeformations?.length) return true;
+  if (attachment.faceAnchor) return !!resolveRulerFace(attachment.faceAnchor, rulerAttachmentFaces(object));
   const currentTopologyKey = object.userData.rulerTopologyKey as string | undefined;
   if (!attachment.topologyKey || attachment.topologyKey === currentTopologyKey || attachment.kind === "surface") return true;
   const target = new THREE.Vector3(...attachment.normalized);
@@ -1194,6 +1232,7 @@ function rulerAttachmentMatchesTopology(state: ThreeState, attachment: RulerAtta
 function rulerEdgeMatchesTopology(state: ThreeState, edge: RulerEdgeAttachment) {
   const object = findShapeObject(state, edge.shapeId);
   if (!object) return false;
+  if (edge.deformationPoints && (object.userData.rulerShape as WorkplaneShape | undefined)?.rulerDeformations?.length) return true;
   const currentTopologyKey = object.userData.rulerTopologyKey as string | undefined;
   if (!edge.topologyKey || edge.topologyKey === currentTopologyKey) return true;
   const segments = rulerNormalizedLineSegments(state, edge.shapeId);
@@ -1209,7 +1248,7 @@ function rulerEdgeMatchesTopology(state: ThreeState, edge: RulerEdgeAttachment) 
   });
 }
 
-function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX: number, clientY: number): RulerCandidate | null {
+function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX: number, clientY: number, disableSnap=false, retainedEdgeKey?:string): RulerCandidate | null {
   const rect = state.renderer.domElement.getBoundingClientRect();
   const pointerX = clientX - rect.left;
   const pointerY = clientY - rect.top;
@@ -1229,11 +1268,13 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
   const vertexCandidates: Array<{ distance: number; candidate: RulerCandidate }> = [];
   const edgeCandidates: Array<{ distance: number; candidate: RulerCandidate }> = [];
 
-  targets.forEach((target) => {
+  if(!disableSnap)targets.forEach((target) => {
     const shapeId = target.userData.shapeId as string;
-    target.traverse((child) => {
-      if (!(child instanceof THREE.Line) || !child.visible) return;
-      const hit=pickRulerLine(child,state.camera,rect.width,rect.height,pointerX,pointerY);
+    target.traverse((surface) => {
+      if (!(surface instanceof THREE.Mesh) || !surface.visible || !surface.userData.shapeSurface) return;
+      const child=rulerSurfaceEdges(surface);
+      const keyPrefix=`${shapeId}:${child.uuid}:`,retainedPath=retainedEdgeKey?.startsWith(keyPrefix)?Number(retainedEdgeKey.slice(keyPrefix.length)):undefined;
+      const hit=pickRulerLine(child,state.camera,rect.width,rect.height,pointerX,pointerY,retainedPath);
       if(hit.vertex){const attachment=rulerAttachmentFromWorld(state,shapeId,hit.vertex.point,"vertex");if(attachment)vertexCandidates.push({distance:hit.vertex.distance,candidate:{x:hit.vertex.point.x,y:hit.vertex.point.y,z:hit.vertex.point.z,attachment}});}
       if(hit.edge){
         const point=hit.edge.point,attachment=rulerAttachmentFromWorld(state,shapeId,point,"edge");
@@ -1248,23 +1289,35 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
   state.raycaster.layers.set(RENDER_LAYER_SHAPES);
   const surfaces:THREE.Mesh[]=[];for(const target of targets)target.traverse(object=>{if(object instanceof THREE.Mesh&&object.visible&&object.userData.shapeSurface)surfaces.push(object);});
   const surfaceHit = state.raycaster.intersectObjects(surfaces, false)[0];
+  const rulerHit = surfaceHit && surfaceHit.faceIndex != null ? { surface: surfaceHit.object as THREE.Mesh<THREE.BufferGeometry>, triangleIndex: surfaceHit.faceIndex, point: surfaceHit.point } : undefined;
   const surfacePlane = surfaceHit?.face ? new THREE.Plane().setFromNormalAndCoplanarPoint(
     surfaceHit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(surfaceHit.object.matrixWorld)).normalize(), surfaceHit.point,
   ) : undefined;
   vertexCandidates.sort((a, b) => a.distance - b.distance);
   edgeCandidates.sort((a, b) => a.distance - b.distance);
-  const snapped = vertexCandidates[0]?.candidate ?? edgeCandidates[0]?.candidate;
+  if(retainedEdgeKey)edgeCandidates.sort((a,b)=>Number(b.candidate.edge?.key===retainedEdgeKey)-Number(a.candidate.edge?.key===retainedEdgeKey));
+  // Do not attract the cursor to a back-side corner through the solid body.
+  const visible = ({candidate}:{candidate:RulerCandidate}) => {
+    const point=new THREE.Vector3(candidate.x,candidate.y,candidate.z),origin=new THREE.Vector3().setFromMatrixPosition(state.camera.matrixWorld);
+    if(state.camera instanceof THREE.OrthographicCamera){origin.copy(point).addScaledVector(state.camera.getWorldDirection(new THREE.Vector3()),-state.camera.far);}
+    const distance=origin.distanceTo(point),ray=new THREE.Raycaster(origin,point.clone().sub(origin).normalize(),0,distance);
+    ray.layers.set(RENDER_LAYER_SHAPES);const hit=ray.intersectObjects(surfaces,false)[0];
+    return !hit||hit.distance>=distance-Math.max(.001,distance*1e-6);
+  };
+  const vertex = vertexCandidates.slice(0,16).find(visible)?.candidate;
+  const edge = !vertex ? edgeCandidates.slice(0,16).find(visible)?.candidate : undefined;
+  const snapped = vertex ?? (edge ? {...edge,surfaceEdgeSnap:true} : undefined);
   if (snapped) {
     if (surfacePlane && surfaceHit?.object.userData.shapeId === snapped.attachment?.shapeId && Math.abs(surfacePlane.distanceToPoint(new THREE.Vector3(snapped.x,snapped.y,snapped.z))) < .01) {
       const attachment = rulerAttachmentFromWorld(state, snapped.attachment!.shapeId, new THREE.Vector3(snapped.x, snapped.y, snapped.z), snapped.attachment!.kind, surfacePlane.normal);
-      return { ...snapped, attachment: attachment ?? snapped.attachment, surfacePlane };
+      return { ...snapped, attachment: attachment ?? snapped.attachment, surfacePlane, surfaceHit: rulerHit };
     }
-    return snapped;
+    return { ...snapped, surfaceHit: surfaceHit?.object.userData.shapeId === snapped.attachment?.shapeId ? rulerHit : undefined };
   }
   if (!surfaceHit) return null;
   const shapeId = surfaceHit.object.userData.shapeId as string;
   const attachment = rulerAttachmentFromWorld(state, shapeId, surfaceHit.point, "surface", surfacePlane?.normal);
-  return attachment ? { x: surfaceHit.point.x, y: surfaceHit.point.y, z: surfaceHit.point.z, attachment, surfacePlane } : null;
+  return attachment ? { x: surfaceHit.point.x, y: surfaceHit.point.y, z: surfaceHit.point.z, attachment, surfacePlane, surfaceHit: rulerHit } : null;
 }
 
 function distanceToScreenSegment(x: number, y: number, ax: number, ay: number, bx: number, by: number) {
@@ -1350,6 +1403,7 @@ function syncRulerOverlay(
         labelX: labelScreen.x,
         labelY: labelScreen.y - 18,
         label: rulerMeasurementLabel(rulerPolylineLength(worldPoints), startWorld.toArray(), endWorld.toArray(), accuracy),
+        bubblePosition: rulerBubblePosition(startWorld.toArray(), endWorld.toArray()),
       },
     ];
   });
@@ -1366,6 +1420,7 @@ function syncRulerOverlay(
       x2: hoverScreen.x, y2: hoverScreen.y,
       labelX: previewMidpoint.x, labelY: previewMidpoint.y - 18,
       label: rulerMeasurementLabel(pendingWorld.distanceTo(hoverWorld), pendingWorld.toArray(), hoverWorld.toArray(), accuracy),
+      bubblePosition: rulerBubblePosition(pendingWorld.toArray(), hoverWorld.toArray()),
     } : null,
     points,
     segments,
@@ -1373,6 +1428,8 @@ function syncRulerOverlay(
       screenX: hoverScreen.x,
       screenY: hoverScreen.y,
       edgeScreenPoints: hoverEdgePoints.length >= 2 ? rulerScreenPointList(hoverEdgePoints, state) : undefined,
+      corner: model.hover?.attachment?.kind === 'vertex',
+      edge: model.hover?.attachment?.kind === 'edge',
     } : null,
   };
   const previous = overlayRef.current;
@@ -1389,6 +1446,7 @@ function syncRulerOverlay(
       const candidate = next.segments[index];
       return segment.id === candidate.id
         && segment.label === candidate.label
+        && Math.abs(segment.bubblePosition - candidate.bubblePosition) < .001
         && segment.screenPoints === candidate.screenPoints
         && Math.abs(segment.x1 - candidate.x1) < 0.2
         && Math.abs(segment.y1 - candidate.y1) < 0.2
@@ -1400,12 +1458,18 @@ function syncRulerOverlay(
     ((!previous.hover && !next.hover) ||
       (previous.hover && next.hover
         && previous.hover.edgeScreenPoints === next.hover.edgeScreenPoints
+        && previous.hover.corner === next.hover.corner
+        && previous.hover.edge === next.hover.edge
         && Math.abs(previous.hover.screenX - next.hover.screenX) < 0.2
         && Math.abs(previous.hover.screenY - next.hover.screenY) < 0.2));
   if (!unchanged) {
     overlayRef.current = next;
     setOverlay(next);
   }
+}
+
+function RulerReading({ label, bubblePosition,showBubble }: { label: string; bubblePosition: number;showBubble:boolean }) {
+  return <><T text={label.slice(0, -1)} />{showBubble&&<L><span className="ruler-level-vial" aria-hidden="true" title="Bubble scale: ±2°. Use the angle for exact deviation."><span className="ruler-level-bubble" style={{ left: `${50 + bubblePosition * 34}%` }} /></span></L>}<T text=")" /></>;
 }
 
 function RulerOverlay({
@@ -1420,9 +1484,11 @@ function RulerOverlay({
   onSegmentPointerDown,
   onWheel,
   stretchMode,
+  showBubble,
   onLabelEdit,
 }: {
   stretchMode: boolean;
+  showBubble: boolean;
   onLabelEdit: (segmentId: string) => void;
   overlay: RulerOverlayState;
   startPointId: string | null;
@@ -1435,9 +1501,28 @@ function RulerOverlay({
   onSegmentPointerDown: (event: ReactPointerEvent<SVGElement>, segmentId: string) => void;
   onWheel: (event: ReactWheelEvent<Element>) => void;
 }) {
+  const labelHost=useRef<HTMLDivElement>(null);
+  const [labelLayout,setLabelLayout]=useState<RulerLabelBox[]>([]);
+  useLayoutEffect(()=>{
+    const host=labelHost.current;if(!host)return;
+    const labels=[...overlay.segments.map(s=>({id:s.id,x:s.labelX,y:s.labelY})),...(active&&overlay.preview?[{id:'preview',x:overlay.preview.labelX,y:overlay.preview.labelY}]:[])];
+    const elements=Array.from(host.querySelectorAll<HTMLElement>('[data-ruler-label-id]'));
+    const measure=()=>{
+      const sizes=new Map(elements.map(e=>[e.dataset.rulerLabelId!,{width:e.offsetWidth,height:e.offsetHeight}]));
+      const next=layoutRulerLabels(labels.flatMap(l=>{const size=sizes.get(l.id);return size?[{...l,...size}]:[];}),host.clientWidth,host.clientHeight,6,overlay.points.map(p=>({id:p.id,x:p.screenX,y:p.screenY,width:16,height:16})));
+      setLabelLayout(previous=>JSON.stringify(previous)===JSON.stringify(next)?previous:next);
+    };
+    measure();const observer=new ResizeObserver(measure);observer.observe(host);elements.forEach(e=>observer.observe(e));return()=>observer.disconnect();
+  },[overlay,active,showBubble]);
+  const labelPositions=new Map(labelLayout.map(l=>[l.id,l]));
   return (
-    <L><div className={`ruler-overlay ${active ? "active" : ""} ${deleteMode ? "delete-mode" : ""} ${moveMode ? "move-mode" : ""} ${stretchMode ? "stretch-mode" : ""}`} aria-label="Ruler measurements" onWheel={onWheel}>
+    <L><div ref={labelHost} className={`ruler-overlay ${active ? "active" : ""} ${deleteMode ? "delete-mode" : ""} ${moveMode ? "move-mode" : ""} ${stretchMode ? "stretch-mode" : ""}`} aria-label="Ruler measurements" onWheel={onWheel}>
       <svg className="ruler-guides" width="100%" height="100%" aria-hidden="true">
+        {labelLayout.map(l=>{
+          const original=l.id==='preview'?overlay.preview:overlay.segments.find(s=>s.id===l.id);
+          if(!original||Math.hypot(l.x-original.labelX,l.y-original.labelY)<2)return null;
+          return <line key={`leader-${l.id}`} className="ruler-label-leader" x1={original.labelX} y1={original.labelY} x2={l.x} y2={l.y}/>;
+        })}
         {overlay.segments.map((segment) => (
           <g key={segment.id} className="ruler-segment-group">
             {segment.screenPoints ? (
@@ -1477,17 +1562,19 @@ function RulerOverlay({
           />
         ))}
         {active && overlay.hover?.edgeScreenPoints ? <polyline className="ruler-hover-edge" points={overlay.hover.edgeScreenPoints} fill="none" /> : null}
-        {active && overlay.hover ? <circle className="ruler-hover-point" cx={overlay.hover.screenX} cy={overlay.hover.screenY} r="5" /> : null}
+        {active && overlay.hover ? <circle className={`ruler-hover-point${overlay.hover.corner?' ruler-corner-snap':''}`} data-ruler-snap={overlay.hover.corner?'corner':overlay.hover.edge?'edge':'surface'} cx={overlay.hover.screenX} cy={overlay.hover.screenY} r={overlay.hover.corner?9:7} /> : null}
       </svg>
+      {active && overlay.hover?.corner ? <span className="ruler-snap-label" style={{left:overlay.hover.screenX+14,top:overlay.hover.screenY+12}}><T text="Corner · Alt: free point"/></span> : null}
+      {active && overlay.hover?.edge ? <span className="ruler-snap-label" style={{left:overlay.hover.screenX+14,top:overlay.hover.screenY+12}}><T text="Edge · Alt: free point"/></span> : null}
       {active && overlay.preview ? (
-        <span className="ruler-label ruler-preview-label" style={{ left: overlay.preview.labelX, top: overlay.preview.labelY }}>
-          <T text={overlay.preview.label} />
-        </span>
+        <L><span className="ruler-label ruler-preview-label" data-ruler-label-id="preview" title="H: deviation from horizontal. V: deviation from vertical. 0° means aligned along the ruler." style={{ left: labelPositions.get('preview')?.x??overlay.preview.labelX, top: labelPositions.get('preview')?.y??overlay.preview.labelY }}>
+          <RulerReading label={overlay.preview.label} bubblePosition={overlay.preview.bubblePosition} showBubble={showBubble}/>
+        </span></L>
       ) : null}
       {overlay.segments.map((segment) => (
-        <span key={`${segment.id}-label`} className="ruler-label" style={{ left: segment.labelX, top: segment.labelY }} onPointerDown={event => { event.stopPropagation(); }} onDoubleClick={event => { event.preventDefault();event.stopPropagation();onLabelEdit(segment.id); }}>
-          <T text={segment.label} />
-        </span>
+        <L key={`${segment.id}-label`}><span className="ruler-label" data-ruler-label-id={segment.id} title="H: deviation from horizontal. V: deviation from vertical. 0° means aligned along the ruler." style={{ left: labelPositions.get(segment.id)?.x??segment.labelX, top: labelPositions.get(segment.id)?.y??segment.labelY }} onPointerDown={event => { event.stopPropagation(); }} onDoubleClick={event => { event.preventDefault();event.stopPropagation();onLabelEdit(segment.id); }}>
+          <RulerReading label={segment.label} bubblePosition={segment.bubblePosition} showBubble={showBubble}/>
+        </span></L>
       ))}
     </div></L>
   );
@@ -2401,6 +2488,7 @@ export function WorkplaneViewport({
   const [selectedHoleOverlay, setSelectedHoleOverlay] = useState<{ label: string; points: string; x: number; y: number } | null>(null);
   const selectedHoleRef = useRef<{ shapeId: string; geometry: THREE.BufferGeometry; hole: CircularHole } | null>(null);
   const faceHighlightRef = useRef<{ group: THREE.Group; surface: THREE.Mesh<THREE.BufferGeometry>; annotation: FaceAnnotation; selected: boolean; triangles: Set<number> } | null>(null);
+  const rulerFaceHighlightRef = useRef<{ group: THREE.Group; surface: THREE.Mesh<THREE.BufferGeometry>; triangles: Set<number> } | null>(null);
   const faceDraftRef = useRef(faceDraft);
   faceDraftRef.current = faceDraft;
   const faceModeRef = useRef(false);
@@ -2424,6 +2512,10 @@ export function WorkplaneViewport({
   const [editingDimension, setEditingDimension] = useState<EditingDimension>(null);
   const [editingRotation, setEditingRotation] = useState<EditingRotation>(null);
   const [rulerMode, setRulerMode] = useState(false);
+  const [rulerBubbleVisible,setRulerBubbleVisible]=useState(true);
+  const [rulerVisible,setRulerVisible]=useState(true);
+  const rulerVisibleRef=useRef(true);
+  rulerVisibleRef.current=rulerVisible;
   const [rulerDeleteMode, setRulerDeleteMode] = useState(false);
   const [rulerMoveMode, setRulerMoveMode] = useState(false);
   const [rulerToolsOpen, setRulerToolsOpen] = useState(false);
@@ -2468,6 +2560,7 @@ export function WorkplaneViewport({
   const rulerDragBeforeRef = useRef<RulerModel | null>(null);
   const rulerPointClickRef = useRef<{ pointId: string; time: number; x: number; y: number } | null>(null);
   const rulerShiftRef = useRef(false);
+  const rulerFreeSnapRef = useRef(false);
   const rulerPointerRef = useRef<{ x: number; y: number } | null>(null);
   const rulerModelRef = useRef(rulerModel);
   const rulerOverlayRef = useRef<RulerOverlayState | null>(null);
@@ -2942,7 +3035,7 @@ export function WorkplaneViewport({
         workspaceRef.current.accuracy,
         rulerModeRef.current ? "add" : rulerMoveModeRef.current ? "move" : rulerDeleteModeRef.current ? "delete" : "idle",
         model.startPointId,
-        !workplaneModeRef.current,
+        !workplaneModeRef.current && rulerVisibleRef.current,
       );
     };
     window.scketch3dwebReadRulerMeasurements = readRulerMeasurements;
@@ -3278,6 +3371,38 @@ export function WorkplaneViewport({
     if (JSON.stringify(previous) !== JSON.stringify(durable)) onRulersChangeRef.current?.(durable);
   }, []);
 
+  const clearRulerFaceHighlight = useCallback(() => {
+    if (rulerFaceHighlightRef.current) disposeFaceSelectionHighlight(rulerFaceHighlightRef.current.group);
+    rulerFaceHighlightRef.current = null;
+    if (threeRef.current) threeRef.current.needsRender = true;
+  }, []);
+  useEffect(() => {
+    const state = threeRef.current, hover = rulerModel.hover;
+    if (!state || (!rulerMode && !rulerMoveMode) || !hover?.attachment) { clearRulerFaceHighlight(); return; }
+    let hit = hover.surfaceHit;
+    if (!hit) {
+      const object = findShapeObject(state, hover.attachment.shapeId), world = new THREE.Vector3(hover.x,hover.y,hover.z);
+      object?.traverse(child => {
+        if (hit || !(child instanceof THREE.Mesh) || !child.userData.shapeSurface) return;
+        const local = child.worldToLocal(world.clone()), closest = child.geometry.boundsTree?.closestPointToPoint(local);
+        if (closest && closest.distance < .02) hit = {surface:child,triangleIndex:closest.faceIndex,point:world};
+      });
+    }
+    if (!hit) { clearRulerFaceHighlight(); return; }
+    const previous = rulerFaceHighlightRef.current;
+    if (previous?.surface === hit.surface && previous.triangles.has(hit.triangleIndex)) return;
+    clearRulerFaceHighlight();
+    try {
+      const annotation = annotatePlanarFace(hit.surface, hit.triangleIndex, hit.point);
+      const group = createFaceSelectionHighlight(hit.surface, annotation, true);
+      group.name = 'RulerSurfacePreview';
+      setObjectRenderLayer(group, RENDER_LAYER_PREVIEWS); state.scene.add(group);
+      rulerFaceHighlightRef.current = {group,surface:hit.surface,triangles:new Set(annotation.triangleIndices)};
+      state.needsRender = true;
+    } catch { clearRulerFaceHighlight(); }
+  }, [rulerMode,rulerMoveMode,rulerModel.hover,shapes,clearRulerFaceHighlight]);
+  useEffect(() => clearRulerFaceHighlight, [clearRulerFaceHighlight]);
+
   const commitRulerModel = useCallback((next: RulerModel, before = rulerModelRef.current) => {
     const snapshot = (model: RulerModel): RulerModel => ({ ...model, hover: null });
     const previous = snapshot(before), after = snapshot(next);
@@ -3287,7 +3412,8 @@ export function WorkplaneViewport({
       rulerPointDragRef.current = null;rulerDragBeforeRef.current = null;
       storeRulerModel({ ...model, startPointId: rulerModeRef.current ? model.startPointId : null, hover: null });
     };
-    onRulerAction?.({ undo: () => restore(previous), redo: () => restore(after) });
+    const description=after.segments.length>previous.segments.length?'Add measurement':after.segments.length<previous.segments.length?'Delete measurement':after.points.length>previous.points.length?'Add measurement point':after.points.length<previous.points.length?'Delete measurement point':'Move measurement point';
+    onRulerAction?.({ undo: () => restore(previous), redo: () => restore(after),metadata:historyMetadata(description) });
   }, [onRulerAction, storeRulerModel]);
 
   useEffect(() => {
@@ -3306,6 +3432,13 @@ export function WorkplaneViewport({
       }
       const object = state ? findShapeObject(state, point.attachment.shapeId) : null;
       const topologyKey = object?.userData.rulerTopologyKey as string | undefined;
+      if (object && !point.attachment.deformationAnchor && state) {
+        const local = object.worldToLocal(rulerAttachmentWorld(state, point.attachment)!);
+        const dimensions = rulerShapeDimensions(object);
+        const deformationAnchor = undeformRulerPoint(local.toArray().map((n,i)=>n/Math.max(.001,dimensions[i])), (object.userData.rulerShape as WorkplaneShape | undefined)?.rulerDeformations);
+        metadataChanged = true;
+        return { ...point, attachment: { ...point.attachment, deformationAnchor, topologyKey } };
+      }
       if (topologyKey && topologyKey !== point.attachment.topologyKey) {
         metadataChanged = true;
         return { ...point, attachment: { ...point.attachment, topologyKey } };
@@ -3322,6 +3455,11 @@ export function WorkplaneViewport({
       }
       const object = state ? findShapeObject(state, segment.edge.shapeId) : null;
       const topologyKey = object?.userData.rulerTopologyKey as string | undefined;
+      if (object && !segment.edge.deformationPoints) {
+        const shape = object.userData.rulerShape as WorkplaneShape | undefined;
+        metadataChanged = true;
+        return { ...segment, edge: { ...segment.edge, topologyKey, deformationPoints: segment.edge.normalizedPoints.map(p => undeformRulerPoint(p, shape?.rulerDeformations)) } };
+      }
       if (topologyKey && topologyKey !== segment.edge.topologyKey) {
         metadataChanged = true;
         return { ...segment, edge: { ...segment.edge, topologyKey } };
@@ -3352,9 +3490,10 @@ export function WorkplaneViewport({
       startPointId: current.startPointId && !removedPointIds.has(current.startPointId) ? current.startPointId : null,
       hover: hoverRemoved ? null : current.hover,
     });
-  }, [shapes, storeRulerModel]);
+  }, [shapes, rulerModel, storeRulerModel]);
 
   const setRulerActive = useCallback((active: boolean) => {
+    if(active){setRulerVisible(true);rulerVisibleRef.current=true;}
     rulerModeRef.current = active;
     setRulerMode(active);
     if (!active) {
@@ -3392,7 +3531,7 @@ export function WorkplaneViewport({
       const localX = clientX - rect.left;
       const localY = clientY - rect.top;
       const closestPoint = model.points.reduce<{ point: RulerPoint; distance: number } | null>((closest, point) => {
-        if (point.id === ignoredPointId) return closest;
+        if (point.id === ignoredPointId || !point.attachment) return closest;
         const screen = projectToScreen(rulerPointWorld(state, point), state);
         const distance = Math.hypot(screen.x - localX, screen.y - localY);
         if (distance <= 12 && (!closest || distance < closest.distance)) {
@@ -3400,55 +3539,16 @@ export function WorkplaneViewport({
         }
         return closest;
       }, null);
-      if (closestPoint) {
+      if (closestPoint && !rulerFreeSnapRef.current) {
         const world = rulerPointWorld(state, closestPoint.point);
         return { x: world.x, y: world.y, z: world.z, pointId: closestPoint.point.id, attachment: closestPoint.point.attachment };
       }
 
-      const closestSegment = model.segments.reduce<{ world: THREE.Vector3; distance: number } | null>((closest, segment) => {
-        if (segment.startId === ignoredPointId || segment.endId === ignoredPointId) return closest;
-        const start = model.points.find((point) => point.id === segment.startId);
-        const end = model.points.find((point) => point.id === segment.endId);
-        if (!start || !end) return closest;
-        const edgePoints = segment.edge ? rulerEdgeWorldPoints(state, segment.edge) : [];
-        const worldPoints = edgePoints.length >= 2 ? edgePoints : [rulerPointWorld(state, start), rulerPointWorld(state, end)];
-        for (let index = 0; index + 1 < worldPoints.length; index += 1) {
-          const a = projectToScreen(worldPoints[index], state);
-          const b = projectToScreen(worldPoints[index + 1], state);
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const amount = dx * dx + dy * dy > 0.001 ? clamp(((localX - a.x) * dx + (localY - a.y) * dy) / (dx * dx + dy * dy), 0, 1) : 0;
-          const distance = Math.hypot(localX - (a.x + dx * amount), localY - (a.y + dy * amount));
-          if (distance <= 10 && (!closest || distance < closest.distance)) {
-            closest = { world: worldPoints[index].clone().lerp(worldPoints[index + 1], amount), distance };
-          }
-        }
-        return closest;
-      }, null);
-
-      if (closestSegment) {
-        const existing = model.points.find((point) => rulerPointWorld(state, point).distanceTo(closestSegment.world) < 0.001);
-        return { x: closestSegment.world.x, y: closestSegment.world.y, z: closestSegment.world.z, pointId: existing?.id };
-      }
-
-      const selectedShapeIds = selectedIdsRef.current.filter((id) => shapesRef.current.some((shape) => shape.id === id && !shape.hidden));
-      const targetShapeIds = selectedShapeIds.length > 0 ? selectedShapeIds : shapesRef.current.filter((shape) => !shape.hidden).map((shape) => shape.id);
-      const modelCandidate = pickModelRulerCandidate(state, targetShapeIds, clientX, clientY);
-      if (modelCandidate) return modelCandidate;
-
-      const raw = toRawPlanePoint(clientX, clientY, state.dragPlane);
-      if (!raw) return null;
-      const step = snapStep(snapRef.current);
-      const bounds = workspaceRef.current;
-      const snapped = {
-        x: clamp(snapValue(raw.x, step), -bounds.width / 2, bounds.width / 2),
-        y: 0,
-        z: clamp(snapValue(raw.z, step), -bounds.depth / 2, bounds.depth / 2),
-      };
-      const existing = model.points.find((point) => Math.hypot(point.x - snapped.x, point.y, point.z - snapped.z) < 0.001 && !point.attachment);
-      return { ...snapped, pointId: existing?.id };
+      // Segments may span empty space; neither they nor the floor are model surfaces.
+      const targetShapeIds = shapesRef.current.filter((shape) => !shape.hidden).map((shape) => shape.id);
+      return pickModelRulerCandidate(state, targetShapeIds, clientX, clientY,rulerFreeSnapRef.current,model.hover?.edge?.key);
     },
-    [toRawPlanePoint],
+    [],
   );
 
   const constrainRulerCandidate = useCallback((candidate: RulerCandidate, startId?: string): RulerCandidate => {
@@ -3494,6 +3594,7 @@ export function WorkplaneViewport({
   const selectRulerCandidate = useCallback(
     (rawCandidate: RulerCandidate) => {
       const candidate = constrainRulerCandidate(rawCandidate);
+      if (!candidate.attachment) return;
       const current = rulerModelRef.current;
       const sameAttachment = (point: RulerPoint, attachment: RulerAttachment | undefined) => Boolean(
         attachment
@@ -3515,7 +3616,7 @@ export function WorkplaneViewport({
         attachment: value.attachment,
       };
 
-      if (candidate.edge && !current.startPointId) {
+      if (candidate.edge && !candidate.surfaceEdgeSnap && !current.startPointId) {
         const state = threeRef.current;
         const worldPoints = state ? rulerEdgeWorldPoints(state, candidate.edge) : [];
         if (worldPoints.length >= 2) {
@@ -3553,7 +3654,7 @@ export function WorkplaneViewport({
       const point = existing ?? makePoint(candidate);
       const points = existing ? current.points : [...current.points, point];
       if (!current.startPointId) {
-        commitRulerModel({ ...current, points, startPointId: point.id, hover: { x: point.x, y: point.y, z: point.z, attachment: point.attachment } });
+        commitRulerModel({ ...current, points, startPointId: point.id, hover: null });
         return;
       }
       if (current.startPointId === point.id) {
@@ -3584,6 +3685,7 @@ export function WorkplaneViewport({
       const current = rulerModelRef.current;
       const hover = candidate ? constrainRulerCandidate(candidate) : null;
       if ((!current.hover && !hover) || (current.hover && hover
+        && current.hover.attachment?.kind === hover.attachment?.kind
         && current.hover.edge?.key === hover.edge?.key
         && Math.hypot(current.hover.x - hover.x, current.hover.y - hover.y, current.hover.z - hover.z) < 0.0001)) {
         return;
@@ -3614,6 +3716,11 @@ export function WorkplaneViewport({
 
   useEffect(() => {
     const updateShift = (event: KeyboardEvent) => {
+      if(event.key==='Alt'){
+        rulerFreeSnapRef.current=event.type==='keydown';
+        const pointer=rulerPointerRef.current;if(pointer&&rulerModeRef.current)updateRulerHover(pointer.x,pointer.y);
+        return;
+      }
       if (event.key !== "Shift") return;
       if (event.ctrlKey || event.metaKey) { rulerShiftRef.current = false;return; }
       rulerShiftRef.current = event.type === "keydown";
@@ -3635,6 +3742,7 @@ export function WorkplaneViewport({
       if (pointer && rulerModeRef.current) updateRulerHover(pointer.x, pointer.y, rulerShiftRef.current);
     };
     const clearShift = () => {
+      rulerFreeSnapRef.current = false;
       rulerShiftRef.current = false;
       const pointer = rulerPointerRef.current;
       if (pointer && rulerModeRef.current) updateRulerHover(pointer.x, pointer.y, false);
@@ -4585,6 +4693,7 @@ export function WorkplaneViewport({
 
       if (rulerModeRef.current) {
         event.preventDefault();
+        rulerFreeSnapRef.current = event.altKey;
         rulerShiftRef.current = event.shiftKey;
         const candidate = resolveRulerCandidate(event.clientX, event.clientY);
         if (candidate) {
@@ -4921,6 +5030,7 @@ export function WorkplaneViewport({
         return;
       }
       if (rulerModeRef.current) {
+        rulerFreeSnapRef.current = event.altKey;
         if(!(event.buttons&6))scheduleRulerHover(event.clientX, event.clientY, event.shiftKey);
         return;
       }
@@ -5006,12 +5116,16 @@ export function WorkplaneViewport({
   );
 
   const handlePointerLeave = useCallback(() => {
+    pendingRulerHoverRef.current = null;
+    if (rulerHoverFrameRef.current !== null) { window.cancelAnimationFrame(rulerHoverFrameRef.current); rulerHoverFrameRef.current = null; }
+    if (rulerModelRef.current.hover) storeRulerModel({ ...rulerModelRef.current, hover: null });
+    clearRulerFaceHighlight();
     if (!faceDraftRef.current) clearFaceHighlight();
     if (workplaneModeRef.current) {
       syncWorkplaneHoverPreview(threeRef.current, null, workspaceRef.current, resolvedThemeRef.current);
     }
     if (modifierActiveRef.current) clearModifierEdgeHover();
-  }, [clearModifierEdgeHover, clearFaceHighlight]);
+  }, [clearModifierEdgeHover, clearFaceHighlight, clearRulerFaceHighlight, storeRulerModel]);
 
   const finishDrag = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -5265,6 +5379,7 @@ export function WorkplaneViewport({
   }, [leaveCameraPanMode, onWorkplaneModeChange, setRulerActive]);
 
   const activateRulerDelete = useCallback(() => {
+    setRulerVisible(true);rulerVisibleRef.current=true;
     leaveCameraPanMode();
     setFaceMode(false);
     setRulerActive(false);
@@ -5276,6 +5391,7 @@ export function WorkplaneViewport({
   }, [leaveCameraPanMode, onWorkplaneModeChange, setRulerActive]);
 
   const activateRulerMove = useCallback(() => {
+    setRulerVisible(true);rulerVisibleRef.current=true;
     leaveCameraPanMode();
     setFaceMode(false);
     setRulerActive(false);
@@ -5453,7 +5569,10 @@ export function WorkplaneViewport({
     const shape=updated;
     clearStretchPreview(false);
     if (preview) {
-      const ghost = createShapeObject({ ...updated, color: "#ffad32" }, false,undefined,false,true);
+      const ghost = createShapeObject({ ...updated, color: "#ffad32" }, false,undefined,true,true);
+      ghost.userData.rulerPreviewFor = updated.id;
+      // Cache face bindings before the light-weight ghost drops its picking indices.
+      rulerAttachmentFaces(ghost);
       ghost.traverse(child => { if(child instanceof THREE.Mesh) {const geometry=new THREE.BufferGeometry();geometry.setAttribute("position",child.geometry.getAttribute("position"));geometry.setAttribute("normal",child.geometry.getAttribute("normal"));child.geometry=geometry;replaceObjectMaterials(child,new THREE.MeshStandardMaterial({color:"#ffad32",transparent:true,opacity:.6,depthWrite:false,side:THREE.DoubleSide}));} });
       setObjectRenderLayer(ghost, RENDER_LAYER_PREVIEWS); state.scene.add(ghost); stretchPreviewRef.current = ghost; state.needsRender=true;
     } else { clearMoveDimensions(); onUpdateShape(shape.id, updated); }
@@ -5514,14 +5633,14 @@ export function WorkplaneViewport({
       const desired = edit.value.trim() ? Number(edit.value.replace(",",".")) : NaN;
       const perpendicular = delta.lengthSq() - delta.getComponent(axis)**2;
       if (!Number.isFinite(desired) || desired <= 0 || desired**2 <= perpendicular) throw new Error("The size must be positive and greater than the transverse offset of the points.");
-      if (Math.abs(desired - delta.length()) < 0.0001) { stretchEditRef.current=null;setStretchEdit(null);return; }
+      if (Math.abs(desired - delta.length()) < 0.0001) { stretchEditRef.current=null;setStretchEdit(null);setStretchMeasureMode(false);return; }
       const target = Math.sqrt(desired**2 - perpendicular);
       const options: AxialStretchOptions = {axis:axisNames[axis],target,keepStart:stretchStart.trim()?Number(stretchStart.replace(",",".")):NaN,keepEnd:stretchEnd.trim()?Number(stretchEnd.replace(",",".")):NaN,anchor:stretchAnchor};
       const updated = await calculateDeformation(shape,object,{kind:"stretch",options},false);
       if(stretchEditRef.current!==edit)throw canceledModelingJob();
       // Keep the selected axis for subsequent edits, even after contraction changes the dominant dimension.
       setStretchAxis(axisNames[axis]);
-      stretchEditRef.current = null; setStretchEdit(null); clearStretchPreview(); clearMoveDimensions();
+      stretchEditRef.current = null; setStretchEdit(null); setStretchMeasureMode(false); clearStretchPreview(); clearMoveDimensions();
       onUpdateShape(shape.id,updated);
     } catch(e) {
       if(e instanceof Error&&e.name==="AbortError")return;
@@ -5529,6 +5648,38 @@ export function WorkplaneViewport({
       requestAnimationFrame(() => stretchInputRef.current?.focus());
     } finally {if(rulerStretchPendingRef.current===edit)rulerStretchPendingRef.current=null;}
   };
+
+  const canceledSizeContextUntil = useRef(0);
+  const cancelRulerSizeEdit = useCallback(() => {
+    stretchEditRef.current = null; setStretchEdit(null); setStretchMeasureMode(false);
+    clearStretchPreview();
+  }, [clearStretchPreview]);
+  useEffect(() => {
+    const cancelPointer = (event: PointerEvent) => {
+      if (event.button !== 2 || (!stretchEditRef.current && !stretchMeasureMode)) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      canceledSizeContextUntil.current = Date.now() + 500;
+      cancelRulerSizeEdit();
+    };
+    const cancelContext = (event: MouseEvent) => {
+      if (!stretchEditRef.current && !stretchMeasureMode && Date.now() > canceledSizeContextUntil.current) return;
+      event.preventDefault(); event.stopImmediatePropagation(); cancelRulerSizeEdit();
+    };
+    const applyOnEmptyDoubleClick = (event: MouseEvent) => {
+      if (event.button !== 0 || !stretchEditRef.current || (event.target instanceof Element && event.target.closest('button,input,.ruler-label,.ruler-size-editor'))) return;
+      const state = threeRef.current; if (!state) return;
+      const rect = state.renderer.domElement.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
+      state.pointer.set((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2);
+      state.raycaster.setFromCamera(state.pointer,state.camera); state.raycaster.layers.set(RENDER_LAYER_SHAPES);
+      const surfaces:THREE.Mesh[]=[];
+      for (const shape of shapesRef.current.filter(s=>!s.hidden)) findShapeObject(state,shape.id)?.traverse(c=>{if(c instanceof THREE.Mesh&&c.visible&&c.userData.shapeSurface)surfaces.push(c);});
+      if (state.raycaster.intersectObjects(surfaces,false).length) return;
+      event.preventDefault(); event.stopImmediatePropagation(); void applyRulerStretch();
+    };
+    window.addEventListener('pointerdown',cancelPointer,true); window.addEventListener('contextmenu',cancelContext,true); window.addEventListener('dblclick',applyOnEmptyDoubleClick,true);
+    return () => {window.removeEventListener('pointerdown',cancelPointer,true);window.removeEventListener('contextmenu',cancelContext,true);window.removeEventListener('dblclick',applyOnEmptyDoubleClick,true);};
+  }, [stretchMeasureMode,cancelRulerSizeEdit,applyRulerStretch]);
 
   useEffect(()=>{
     const handler=async(operation:string,params:Record<string,unknown>):Promise<unknown>=>{
@@ -5550,7 +5701,7 @@ export function WorkplaneViewport({
       if(operation==="draw_object"){
         if(!["rectangle","circle","triangle"].includes(String(params.profile)))throw new Error("Invalid drawing profile");
         const raw=params.points;if(!Array.isArray(raw)||raw.length!==(params.profile==="triangle"?3:2)||raw.some(p=>!Array.isArray(p)||p.length!==2||p.some(n=>typeof n!=="number"||!Number.isFinite(n)||Math.abs(n)>100000)))throw new Error("Supply X/Z point pairs");
-        const shape=drawnPrimitive(params.profile as DrawnPrimitiveKind,raw.map(p=>new THREE.Vector3(p[0],0,p[1])),number("height"));if(typeof params.name==="string"&&params.name.trim())shape.name=params.name.trim().slice(0,120);assertActive();onCreateShape(shape);return{objectId:shape.id,dimensions:{width:shape.width,height:shape.height,depth:shape.depth}};
+        const shape=drawnPrimitive(params.profile as DrawnPrimitiveKind,raw.map(p=>new THREE.Vector3(p[0],0,p[1])),number("height"));if(typeof params.name==="string"&&params.name.trim())shape.name=params.name.trim().slice(0,120);assertActive();withHistoryMetadata({actor:typeof params.__mcpExpiresAt==='number'?'agent':'user',description:'Draw object'},()=>onCreateShape(shape));return{objectId:shape.id,dimensions:{width:shape.width,height:shape.height,depth:shape.depth}};
       }
       const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===params.id),object=state&&shape&&findShapeObject(state,shape.id);
       if(!state||!shape||!object)throw new Error("Object not found or hidden");
@@ -5563,7 +5714,7 @@ export function WorkplaneViewport({
       if(typeof params.expectedFingerprint!=="string"||params.expectedFingerprint!==fingerprint)throw new Error("Object changed. Read its current fingerprint before editing.");
       if(shape.locked)throw new Error("Unlock the object first");
       let updated:WorkplaneShape;
-      if(operation==="offset_connection")updated=await calculateDeformation(shape,object,{kind:"offset",options:{fixedFaceId:String(params.fixedFaceId),movingFaceId:String(params.movingFaceId),mode:params.mode==="center"?"center":"offset",coordinateSystem:params.coordinateSystem==="floor"?"floor":"local",keepFixed:number("keepFixed",2),keepMoving:number("keepMoving",2),offsetU:number("offsetU",0),offsetV:number("offsetV",0)}},false);
+      if(operation==="offset_connection")updated=await calculateDeformation(shape,object,{kind:"offset",options:{fixedFaceId:String(params.fixedFaceId),movingFaceId:String(params.movingFaceId),mode:params.mode==="center"?"center":params.mode==="position"?"position":"offset",coordinateSystem:params.coordinateSystem==="floor"?"floor":"local",fixedAnchorU:params.fixedAnchorU as ConnectionOffsetOptions['fixedAnchorU'],movingAnchorU:params.movingAnchorU as ConnectionOffsetOptions['movingAnchorU'],fixedAnchorV:params.fixedAnchorV as ConnectionOffsetOptions['fixedAnchorV'],movingAnchorV:params.movingAnchorV as ConnectionOffsetOptions['movingAnchorV'],keepFixed:number("keepFixed",2),keepMoving:number("keepMoving",2),offsetU:number("offsetU",0),offsetV:number("offsetV",0)}},false);
       else if(operation==="stretch"){
         if(!["x","y","z"].includes(String(params.axis))||!["start","center","end"].includes(String(params.anchor??"start")))throw new Error("Invalid axis or anchor");
         updated=await calculateDeformation(shape,object,{kind:"stretch",options:{axis:params.axis as AxialStretchOptions["axis"],target:number("target"),keepStart:number("keepStart",2),keepEnd:number("keepEnd",2),anchor:(params.anchor??"start") as AxialStretchOptions["anchor"]}},false);
@@ -5590,7 +5741,9 @@ export function WorkplaneViewport({
       }else throw new Error(`Unknown modeling operation: ${operation}`);
       assertActive();
       if(params.preview===true){showDeformation(updated,true);return{preview:true,objectId:shape.id,sourceFingerprint:fingerprint,dimensions:{width:updated.width,height:updated.height,depth:updated.depth}};}
-      assertActive();clearStretchPreview();onUpdateShape(shape.id,updated);
+      assertActive();clearStretchPreview();
+      const titles:Record<string,string>={offset_connection:params.mode==='position'?'Set position from reference':'Offset connection',stretch:'Resize length',rotate_floor:'Rotate on floor',edit_hole:'Edit hole',paint_face:'Paint face',edit_face_label:'Edit face label'};
+      withHistoryMetadata({actor:typeof params.__mcpExpiresAt==='number'?'agent':'user',description:titles[operation]??'Edit model'},()=>onUpdateShape(shape.id,updated));
       return{applied:true,objectId:shape.id,expectedFingerprint:meshReplacementFingerprint(updated),dimensions:{width:updated.width,height:updated.height,depth:updated.depth}};
     };
     window.scketch3dwebModelingCommand=handler;return()=>{if(window.scketch3dwebModelingCommand===handler)delete window.scketch3dwebModelingCommand;};
@@ -5803,7 +5956,7 @@ export function WorkplaneViewport({
             <div className="ruler-control-group">
               <L><button aria-label="Resize by ruler" title="Resize by ruler" aria-pressed={stretchMeasureMode} className={stretchMeasureMode ? "active" : ""} onClick={toggleRulerStretchTool}><ArrowLeftRight size={25}/></button></L>
               {stretchMeasureMode && <div className="stretch-measure-popover" onPointerDown={e=>e.stopPropagation()}>
-                <strong><T text="Resize by ruler" /></strong><p><T text="Double-click a measurement, enter the desired distance in mm, then click outside or press Enter. Esc cancels." /></p>
+                <strong><T text="Resize by ruler" /></strong><p><T text="Double-click a measurement, enter the desired distance in mm, then double-click empty space or press Enter. Escape or right-click cancels." /></p>
                 <L><label className="select-property"><span><T text="Stretch axis" /></span><select aria-label="Ruler stretch axis" value={stretchAxis} onChange={e=>setStretchAxis(e.target.value as typeof stretchAxis)}><option value="auto"><T text="Automatic" /></option><option value="x">X</option><option value="y">Y</option><option value="z">Z</option></select></label></L>
                 <L><label className="text-property"><span><T text="Preserve start (mm)" /></span><L><input aria-label="Ruler preserve start" inputMode="decimal" value={stretchStart} onChange={e=>setStretchStart(e.target.value)}/></L></label></L>
                 <L><label className="text-property"><span><T text="Preserve end (mm)" /></span><L><input aria-label="Ruler preserve end" inputMode="decimal" value={stretchEnd} onChange={e=>setStretchEnd(e.target.value)}/></L></label></L>
@@ -5838,6 +5991,13 @@ export function WorkplaneViewport({
                   <L><button className={`ruler-delete-button ${rulerDeleteMode ? "active" : ""}`} aria-label="Delete measurement part" title="Delete measurement part" aria-pressed={rulerDeleteMode} onClick={activateRulerDelete}>
                     <X size={20} strokeWidth={2.4} aria-hidden="true" />
                   </button></L>
+                  <L><button className={rulerBubbleVisible?'active':''} aria-label="Bubble level" title="Show or hide bubble levels" aria-pressed={rulerBubbleVisible} onClick={()=>setRulerBubbleVisible(visible=>!visible)}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M8 7v10M16 7v10"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+                  </button></L>
+                  <L><button className={rulerVisible?'active':''} aria-label="Measurement visibility" title="Show or hide all measurements" aria-pressed={rulerVisible} onClick={()=>{
+                    const next=!rulerVisible;setRulerVisible(next);rulerVisibleRef.current=next;
+                    if(!next){setRulerActive(false);rulerMoveModeRef.current=false;setRulerMoveMode(false);rulerDeleteModeRef.current=false;setRulerDeleteMode(false);rulerPointDragRef.current=null;cancelRulerSizeEdit();}
+                  }}>{rulerVisible?<Eye size={21} aria-hidden="true"/>:<EyeOff size={21} aria-hidden="true"/>}</button></L>
                 </div></L>
               ) : null}
             </div>
@@ -5906,10 +6066,11 @@ export function WorkplaneViewport({
           ) : null}
           {!workplaneMode && alignOverlay ? <AlignOverlay overlay={alignOverlay} onAlign={onAlignSelection} onPreview={onAlignPreview} onPreviewClear={onAlignPreviewClear} /> : null}
           {!workplaneMode && mirrorOverlay ? <MirrorOverlay overlay={mirrorOverlay} onMirror={onMirrorSelection} onPreview={onMirrorPreview} onPreviewClear={onMirrorPreviewClear} /> : null}
-          {!workplaneMode && rulerOverlay && (rulerOverlay.points.length > 0 || rulerOverlay.hover) ? (
+          {rulerVisible && !workplaneMode && rulerOverlay && (rulerOverlay.points.length > 0 || rulerOverlay.hover) ? (
             <RulerOverlay
               overlay={rulerOverlay}
               stretchMode={stretchMeasureMode}
+              showBubble={rulerBubbleVisible}
               onLabelEdit={beginRulerStretch}
               startPointId={rulerModel.startPointId}
               active={rulerMode || rulerMoveMode}
@@ -5922,8 +6083,8 @@ export function WorkplaneViewport({
               onWheel={forwardCameraWheelFromOverlay}
             />
           ) : null}
-          {stretchEdit && rulerOverlay?.segments.some(s=>s.id===stretchEdit.segmentId) && (()=>{const label=rulerOverlay.segments.find(s=>s.id===stretchEdit.segmentId)!;return <div className="ruler-size-editor" style={{left:label.labelX,top:label.labelY}} onPointerDown={e=>e.stopPropagation()}>
-            <L><input ref={stretchInputRef} autoFocus aria-label="Desired ruler distance (mm)" inputMode="decimal" value={stretchEdit.value} onChange={e=>{const next={...stretchEdit,value:e.target.value,error:""};stretchEditRef.current=next;setStretchEdit(next);}} onBlur={applyRulerStretch} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();applyRulerStretch();}if(e.key==="Escape"){e.preventDefault();stretchEditRef.current=null;setStretchEdit(null);}}}/></L>
+          {rulerVisible && stretchEdit && rulerOverlay?.segments.some(s=>s.id===stretchEdit.segmentId) && (()=>{const label=rulerOverlay.segments.find(s=>s.id===stretchEdit.segmentId)!;return <div className="ruler-size-editor" style={{left:label.labelX,top:label.labelY}} onPointerDown={e=>e.stopPropagation()}>
+            <L><input ref={stretchInputRef} autoFocus aria-label="Desired ruler distance (mm)" title="Enter or double-click empty space to apply. Escape or right-click to cancel." inputMode="decimal" value={stretchEdit.value} onChange={e=>{const next={...stretchEdit,value:e.target.value,error:""};stretchEditRef.current=next;setStretchEdit(next);}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();applyRulerStretch();}if(e.key==="Escape"){e.preventDefault();cancelRulerSizeEdit();}}}/></L>
             {stretchEdit.error && <span role="alert">{stretchEdit.error}</span>}
           </div>;})()}
         </div>
@@ -5949,6 +6110,7 @@ export function WorkplaneViewport({
           holeEditor={<HoleEditorPanel profiles={holeModel?.profiles??[]} selected={holeModel?.profiles.find(p=>p.id===holeSelected)??null} draft={holeDraft} min={holeModel?.min??[0,0,0]} busy={holeBusy} error={holeError} drawing={Boolean(holePlacement)} onSelect={id=>{setHoleSelected(id);setHoleDraft(null);setHolePlacement(null);holeSketchRef.current=null;setHoleDrawWorld([]);setHoleError("");}} onBegin={kind=>{setHolePlacement(kind);setHoleDraft(null);setHoleSelected(null);setHoleError("");holeSketchRef.current=null;setHoleDrawWorld([]);}} onApply={edit=>void applyHole(edit)} onCancel={()=>{setHolePlacement(null);setHoleDraft(null);holeSketchRef.current=null;setHoleDrawWorld([]);setHoleError("");}}/>}
           onEndOffsetPairChange={()=>{clearStretchPreview();offsetBaselineRef.current=null;const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===selectedShape?.id),object=state&&shape&&findShapeObject(state,shape.id);setOffsetBaseConnections(null);setEndConnections(shape&&object?readEndConnections(shape,object):[]);}}
           endConnections={offsetBaseConnections??endConnections}
+          currentEndConnections={endConnections}
           offsetSessionVersion={offsetSessionVersion}
           onEndOffsetReset={resetEndOffset}
           onEndOffset={options=>editEndOffset(options,false)}
@@ -6805,6 +6967,7 @@ function syncCutPreviewOverlays(state: ThreeState, shapes: WorkplaneShape[]) {
 }
 
 function updateShapeObjectTransform(object: THREE.Group, shape: WorkplaneShape) {
+  object.userData.rulerShape = shape;
   object.name = shape.name;
   object.userData.shapeId = shape.id;
   object.userData.rulerDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
@@ -6820,6 +6983,7 @@ function updateShapeObjectTransform(object: THREE.Group, shape: WorkplaneShape) 
 }
 
 function syncShapeObjectDimensions(object: THREE.Group, shape: WorkplaneShape) {
+  object.userData.rulerShape = shape;
   object.userData.rulerDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
   object.userData.rulerTopologyKey = rulerShapeTopologyKey(shape);
   const surface = object.children.find((child): child is THREE.Mesh => child instanceof THREE.Mesh && Boolean(child.userData.shapeSurface));
@@ -8137,6 +8301,7 @@ function createShapeObject(
 ) {
   const group = new THREE.Group();
   group.name = shape.name;
+  group.userData.rulerShape = shape;
   group.userData.shapeId = shape.id;
   group.userData.showEdges = showEdges;
   group.userData.acceleratedPicking = acceleratedPicking;

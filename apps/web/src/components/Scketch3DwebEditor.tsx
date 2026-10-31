@@ -3,7 +3,10 @@ import {getClientAccount} from "@/lib/accountClient";
 import {restoreRulerState,type RulerState} from "@/lib/rulerState";
 import { assertMcpCommandActive } from "@/lib/scketch3dwebMcpProtocol";
 
-import { SessionActionHistory, type TransientHistoryAction } from "@/lib/sessionActionHistory";
+import { SessionActionHistory, historyMetadata, withHistoryMetadata, type TransientHistoryAction } from "@/lib/sessionActionHistory";
+import {OperationHistoryDialog} from '@/components/OperationHistoryDialog';
+import {describeHistoryChange} from '@/lib/historyDescription';
+import {History as HistoryIcon} from 'lucide-react';
 
 import { meshReplacementFingerprint, replaceImportedMesh } from "@/lib/replaceImportedMesh";
 
@@ -5505,7 +5508,9 @@ export function Scketch3DwebEditor({
   const projectInfoRef = useRef({ projectId: projectId ?? null, projectName, projectCreatedAt });
   const historyIndexRef = useRef(historyIndex);
   const historyRef = useRef(history);
-  const sessionActionsRef = useRef(new SessionActionHistory());
+  const [sessionActions]=useState(()=>new SessionActionHistory(historyIndex,history.length-historyIndex-1));
+  const sessionActionsRef = useRef(sessionActions);
+  const [operationHistoryOpen,setOperationHistoryOpen]=useState(false);
   const [, setSessionActionRevision] = useState(0);
   const historyLimitRef = useRef(workspaceSettings.historyLimit);
   const interactionHistoryStartRef = useRef("");
@@ -6096,11 +6101,13 @@ export function Scketch3DwebEditor({
       historyIndexRef.current = bounded.index;
       setHistory(bounded.entries);
       setHistoryIndex(bounded.index);
+      sessionActionsRef.current.limitModels(bounded.index,bounded.entries.length-bounded.index-1);setSessionActionRevision(n=>n+1);
     }
     if (limitChanged) syncProjectShapes(shapesRef.current, true);
   }, [syncProjectShapes, workspaceSettings.historyLimit]);
 
   const appendHistoryEntry = useCallback((entry: EditorHistoryEntry) => {
+    const description=describeHistoryChange(historyRef.current[historyIndexRef.current]?.shapes??[],entry.shapes);
     const result = appendEditorHistorySnapshot(
       historyRef.current,
       historyIndexRef.current,
@@ -6113,7 +6120,7 @@ export function Scketch3DwebEditor({
     }
     historyIndexRef.current = result.index;
     setHistoryIndex(result.index);
-    if (result.changed) { sessionActionsRef.current.recordModel(); setSessionActionRevision(version => version + 1); }
+    if (result.changed) { sessionActionsRef.current.recordModel(historyMetadata(description));sessionActionsRef.current.limitModels(result.index,result.entries.length-result.index-1); setSessionActionRevision(version => version + 1); }
     return result.changed;
   }, []);
 
@@ -6295,7 +6302,7 @@ export function Scketch3DwebEditor({
       selectedIdsRef.current = validSelection;
       setShapes(canonicalNext);
       setSelectedIds(validSelection);
-      const changed = appendHistorySnapshot(canonicalNext, validSelection);
+      const changed = message?withHistoryMetadata(historyMetadata(message),()=>appendHistorySnapshot(canonicalNext, validSelection)):appendHistorySnapshot(canonicalNext,validSelection);
       if (message) {
         setNotice(message);
       }
@@ -6976,7 +6983,7 @@ export function Scketch3DwebEditor({
       normalizeWorkspaceSettings(initialWorkspace).historyLimit,
     );
     projectHydratingRef.current = true;
-    sessionActionsRef.current.clear();setSessionActionRevision(version => version + 1);
+    sessionActionsRef.current.resetModels(hydratedHistory.index,hydratedHistory.entries.length-hydratedHistory.index-1);setOperationHistoryOpen(false);setSessionActionRevision(version => version + 1);
     shapesRef.current = incoming;
     selectedIdsRef.current = [];
     historyRef.current = hydratedHistory.entries;
@@ -7260,6 +7267,18 @@ export function Scketch3DwebEditor({
     syncProjectShapes(nextShapes);
     setNotice(modifierCancelled ? "Edge modifier cancelled · Redo" : "Redo");
   }, [invalidateCadModifierSession, syncProjectShapes]);
+
+  const goToHistoryStep=useCallback((target:number)=>{
+    if(projectInteractionActiveRef.current||modelingBusy)return;
+    const log=sessionActionsRef.current;
+    if(!log.canTravelTo(target,historyIndexRef.current,historyRef.current.length-historyIndexRef.current-1))return;
+    invalidateCadModifierSession();let index=historyIndexRef.current;
+    while(log.cursor>target){if(!log.undoTransient()){log.modelUndone();index--;}}
+    while(log.cursor<target){if(!log.redoTransient()){log.modelRedone();index++;}}
+    const entry=historyRef.current[index],next=(entry?.shapes??[]).map(canonicalizeShape),selection=(entry?.selectedIds??[]).filter(id=>next.some(s=>s.id===id));
+    historyIndexRef.current=index;shapesRef.current=next;selectedIdsRef.current=selection;
+    setHistoryIndex(index);setShapes(next);setSelectedIds(selection);setSessionActionRevision(n=>n+1);syncProjectShapes(next,true);setNotice('History restored');
+  },[invalidateCadModifierSession,modelingBusy,syncProjectShapes]);
 
   const toggleAlignMode = useCallback(() => {
     if (selectedShapes.length < 2) {
@@ -7636,11 +7655,11 @@ export function Scketch3DwebEditor({
       throw new Error("The target object or project changed while the edge treatment was running; try again");
     }
     assertActive();
-    commitShapes(
+    withHistoryMetadata({actor:'agent'},()=>commitShapes(
       shapesRef.current.map((candidate) => candidate.id === shape.id ? modifiedShape : candidate),
       modifiedShape.id,
       `${kind === "fillet" ? "Filleted" : "Chamfered"} ${selectedEdgeIds.length} edge${selectedEdgeIds.length === 1 ? "" : "s"} by MCP`,
-    );
+    ));
     return {
       object: mcpShapeSummary(modifiedShape),
       selectedEdgeIds,
@@ -8016,7 +8035,7 @@ export function Scketch3DwebEditor({
   const commitShapesForMcp = commitShapes;
   const executeMcpCommand = useCallback(async (command: Scketch3DwebMcpCommand): Promise<unknown> => {
     assertMcpCommandActive(command);
-    const commitShapes: typeof commitShapesForMcp = (...args) => { assertMcpCommandActive(command); commitShapesForMcp(...args); };
+    const commitShapes: typeof commitShapesForMcp = (...args) => { assertMcpCommandActive(command);withHistoryMetadata({actor:'agent',description:args[2]??command.action},()=>commitShapesForMcp(...args)); };
     const params = command.params ?? {};
     const currentShapes = () => shapesRef.current;
     const findShape = (id: unknown) => (typeof id === "string" ? currentShapes().find((shape) => shape.id === id) ?? null : null);
@@ -9214,6 +9233,7 @@ export function Scketch3DwebEditor({
   return (
     <div className="scketch3dweb-editor">
       <SecondaryToolbar
+        onHistory={()=>setOperationHistoryOpen(true)}
         catalogLoading={catalogLoading}
         toolbarMode={toolbarMode}
         projectName={projectName}
@@ -9453,6 +9473,7 @@ export function Scketch3DwebEditor({
           onNotice={setNotice}
         />
       ) : null}
+      {operationHistoryOpen&&<OperationHistoryDialog entries={sessionActionsRef.current.entries} cursor={sessionActionsRef.current.cursor} disabled={projectInteractionActive||modelingBusy} canGo={step=>sessionActionsRef.current.canTravelTo(step,historyIndex,history.length-historyIndex-1)} onGo={goToHistoryStep} onClose={()=>setOperationHistoryOpen(false)}/>}
       <input
         ref={sketchImageInputRef}
         className="hidden-file-input"
@@ -9538,6 +9559,7 @@ const sketchShapeMenuItems = [
 ] satisfies Array<{ primitive: SketchPrimitive; label: string; icon: typeof SquareIcon }>;
 
 function SecondaryToolbar({
+  onHistory,
   catalogLoading,
   toolbarMode,
   projectName,
@@ -9595,6 +9617,7 @@ function SecondaryToolbar({
   onAddShape,
 }: {
   catalogLoading: boolean;
+  onHistory:()=>void;
   toolbarMode: ToolbarMode;
   projectName: string;
   onProjectNameChange?: (name: string) => void;
@@ -9790,6 +9813,7 @@ function SecondaryToolbar({
     { label: "Duplicate", icon: ToolbarDuplicateIcon, action: onDuplicate, enabled: hasSelection },
     { label: "Delete", icon: ToolbarTrashIcon, action: onDelete, enabled: hasSelection },
     { label: "Undo", icon: ToolbarUndoIcon, action: onUndo, enabled: canUndo },
+    { label: "Operation history", icon: HistoryIcon, action: onHistory, enabled: true },
     { label: "Redo", icon: ToolbarRedoIcon, action: onRedo, enabled: canRedo },
   ];
   const visibilityTools = [

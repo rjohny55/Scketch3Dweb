@@ -6,9 +6,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white)](#quick-start)
 
-![Scketch3Dweb editor with an example mechanical assembly](docs/images/demo-editor.png)
+![Scketch3Dweb editor with the built-in RP1 robot demo](docs/images/demo-editor.png)
 
-*Actual editor screenshot with synthetic demo parts. No customer projects or account credentials are shown.*
+*Actual editor screenshot of the built-in RP1 robot demo. No account credentials are shown.*
 
 ## Features
 
@@ -105,7 +105,7 @@ Download Linux and Windows x64 desktop packages from [GitHub Releases](https://g
 - Linux: AppImage or Debian/Ubuntu `.deb` package.
 - Windows: `.exe` installer with a selectable installation directory.
 
-The packages are unsigned. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.11 release notes](docs/releases/1.0.11.md).
+The packages are unsigned. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.12 release notes](docs/releases/1.0.12.md).
 
 To build the desktop application from source:
 

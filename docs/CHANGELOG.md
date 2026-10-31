@@ -6,6 +6,13 @@
 - Reduced autosave work after transforms by sharing CAD display edges across undo states and reusing immutable mesh, B-Rep, and image encoding.
 - Added `.skf` format 2 shared display-edge assets, with continued reading of format 1 packages and legacy JSON projects. New saves require the updated reader.
 
+## 1.0.12
+
+- Fixed ruler bindings during flange deformation and added real corner/edge snapping with Alt override.
+- Added collision-free ruler labels, bubble-level and visibility toggles, and explicit resize apply/cancel controls.
+- Added absolute reference-edge positioning and a guarded MCP positioning tool.
+- Added a user/agent operation journal with mixed model/ruler undo, redo and history navigation for the current session.
+
 ## 1.0.9
 
 - Corrected Top and Bottom camera views so they align exactly with the vertical axis in both perspective and orthographic projection.

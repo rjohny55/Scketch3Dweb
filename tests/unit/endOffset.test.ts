@@ -1,6 +1,59 @@
 import {it,expect} from 'vitest';import * as THREE from 'three';import {computeBoundsTree} from 'three-mesh-bvh';import {offsetEndTriangles,offsetConnection,readEndConnections} from '@/lib/endOffset';import {annotatePlanarFace,measureAnnotatedFace} from '@/lib/faceAnnotations';import {holeMeshReport} from '@/lib/meshHoleEditing';import type {WorkplaneShape} from '@/types/scketch3dweb';
+import { bindRulerFace, resolveRulerFace } from '@/lib/rulerFaceAnchor';
+import { rulerInclinationDegrees } from '@/lib/rulerMeasurements';
+import { deformRulerPoint, undeformRulerPoint } from '@/lib/rulerDeformation';
+import {connectionPositionGaps} from '@/lib/endOffset';
 function fixture(){const shape:WorkplaneShape={id:'duct',name:'Duct',kind:'mesh',color:'#0098c7',width:20,height:10,depth:12,size:20,x:30,z:40,elevation:2,rotation:0};const g=new THREE.BoxGeometry(20,10,12).toNonIndexed();g.translate(0,5,0);shape.importedMesh={positions:Array.from(g.getAttribute('position').array),baseWidth:20,baseHeight:10,baseDepth:12,triangleCount:12,sourceFormat:'json'};const surface=new THREE.Mesh(g);surface.position.y=-5;surface.userData.shapeSurface=true;const root=new THREE.Group();root.position.set(30,7,40);root.add(surface);root.updateMatrixWorld(true);shape.faceAnnotations=[{...annotatePlanarFace(surface,0,new THREE.Vector3(40,7,40)),name:'Fan'},{...annotatePlanarFace(surface,2,new THREE.Vector3(20,7,40)),name:'GPU'}];return{shape,root,surface};}
 function after(shape:WorkplaneShape,root:THREE.Group){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(shape.importedMesh!.positions,3));computeBoundsTree.call(g,{targetLeafSize:12});const mesh=new THREE.Mesh(g);mesh.position.y=-shape.height/2;mesh.userData.shapeSurface=true;const object=new THREE.Group();object.position.set(shape.x,shape.elevation!+shape.height/2,shape.z);object.rotation.copy(root.rotation);object.scale.copy(root.scale);object.add(mesh);object.updateMatrixWorld(true);return{object,mesh};}
+it.each([-3,3])('carries unnamed side-wall ruler points through a rotated floor offset of %s mm',offset=>{
+ const {shape,root}=fixture();shape.rotationX=90;root.rotation.x=Math.PI/2;root.updateMatrixWorld(true);
+ const faces=readEndConnections(shape,root),a=new THREE.Vector3(9,5,1),b=new THREE.Vector3(-9,5,1);
+ expect(bindRulerFace(a,faces)).toBeUndefined();expect(bindRulerFace(b,faces)).toBeUndefined();
+ const size=new THREE.Vector3(shape.width,shape.height,shape.depth),baseA=a.clone().divide(size).toArray(),baseB=b.clone().divide(size).toArray();
+ const next=offsetConnection(shape,root,{fixedFaceId:faces[0].id,movingFaceId:faces[1].id,keepFixed:2,keepMoving:2,coordinateSystem:'floor',offsetU:offset,offsetV:0});
+ const {object}=after(next,root),nextSize=new THREE.Vector3(next.width,next.height,next.depth);
+ const move=(base:number[])=>object.localToWorld(new THREE.Vector3(...deformRulerPoint(base,next.rulerDeformations)).multiply(nextSize));
+ const worldA=root.localToWorld(a.clone()),worldB=root.localToWorld(b.clone());
+ expect(move(baseA).distanceTo(worldA)).toBeLessThan(1e-5);
+ expect(move(baseB).y-worldB.y).toBeCloseTo(offset,5);
+ const rebound=undeformRulerPoint(deformRulerPoint(baseB,next.rulerDeformations),next.rulerDeformations);
+ rebound.forEach((n,i)=>expect(n).toBeCloseTo(baseB[i],10));
+ const second=offsetConnection(next,object,{fixedFaceId:faces[0].id,movingFaceId:faces[1].id,keepFixed:2,keepMoving:2,coordinateSystem:'floor',offsetU:offset,offsetV:0});
+ const again=after(second,object).object.localToWorld(new THREE.Vector3(...deformRulerPoint(baseB,second.rulerDeformations)).multiply(new THREE.Vector3(second.width,second.height,second.depth)));
+ expect(again.y-worldB.y).toBeCloseTo(offset*2,5);
+});
+it('sets absolute edge-to-edge distances instead of adding the requested value to the old offset',()=>{
+ const {shape,root}=fixture();root.rotation.set(.15,.3,.1);shape.rotationX=.15*180/Math.PI;shape.rotation=.3*180/Math.PI;shape.rotationZ=.1*180/Math.PI;root.updateMatrixWorld(true);
+ const faces=readEndConnections(shape,root),options={fixedFaceId:faces[0].id,movingFaceId:faces[1].id,keepFixed:2,keepMoving:2,coordinateSystem:'floor' as const,mode:'position' as const,offsetU:7,offsetV:-4,fixedAnchorU:'max' as const,movingAnchorU:'min' as const,fixedAnchorV:'min' as const,movingAnchorV:'max' as const};
+ const next=offsetConnection(shape,root,options),object=after(next,root).object;
+ const changed=readEndConnections(next,object),gaps=connectionPositionGaps(changed,options);
+ expect(gaps.vertical).toBeCloseTo(7,4);expect(gaps.horizontal).toBeCloseTo(-4,4);
+ expect(new THREE.Vector3(...changed[0].worldCenter).distanceTo(new THREE.Vector3(...faces[0].worldCenter))).toBeLessThan(1e-4);
+ const repeat=offsetConnection(next,object,options),repeated=connectionPositionGaps(readEndConnections(repeat,after(repeat,object).object),options);
+ expect(repeated.vertical).toBeCloseTo(7,4);expect(repeated.horizontal).toBeCloseTo(-4,4);
+ const aligned={...options,offsetU:0,offsetV:0},zero=offsetConnection(next,object,aligned);
+ const zeroGap=connectionPositionGaps(readEndConnections(zero,after(zero,object).object),aligned);
+ expect(zeroGap.vertical).toBeCloseTo(0,4);expect(zeroGap.horizontal).toBeCloseTo(0,4);
+});
+it('uses the ruler as a live level while raising and lowering a labeled flange',()=>{
+ const {shape,root}=fixture(),faces=readEndConnections(shape,root);
+ const start=new THREE.Vector3(10,0,1),end=new THREE.Vector3(-10,.115,1);
+ const a=bindRulerFace(start,faces)!,b=bindRulerFace(end,faces)!;
+ expect(a.faceId).toBe(faces[0].id);expect(b.faceId).toBe(faces[1].id);
+ const angle=(object:THREE.Group,ends:ReturnType<typeof readEndConnections>)=>rulerInclinationDegrees(object.localToWorld(resolveRulerFace(a,ends)!).toArray(),object.localToWorld(resolveRulerFace(b,ends)!).toArray());
+ expect(angle(root,faces)).toBeCloseTo(.32945,4);
+ for(const offset of [-.115,3,-4]){
+  const next=offsetConnection(shape,root,{fixedFaceId:a.faceId,movingFaceId:b.faceId,keepFixed:2,keepMoving:2,offsetU:offset,offsetV:0,coordinateSystem:'floor'});
+  const {object}=after(next,root),changed=readEndConnections(next,object);
+  const p=object.localToWorld(resolveRulerFace(a,changed)!),q=object.localToWorld(resolveRulerFace(b,changed)!);
+  expect(p.distanceTo(root.localToWorld(start.clone()))).toBeLessThan(1e-5);
+  expect(q.y-p.y).toBeCloseTo(.115+offset,5);
+  expect(angle(object,changed)).toBeCloseTo(Math.atan2(Math.abs(.115+offset),20)*180/Math.PI,5);
+ }
+ expect(angle(root,faces)).toBeCloseTo(.32945,4); // Undo/reset resolves against the original face again.
+ expect(bindRulerFace(new THREE.Vector3(10,100,100),faces)).toBeUndefined();
+ expect(resolveRulerFace(b,faces.filter(f=>f.id!==b.faceId))).toBeNull();
+});
 it.each(['x','y','z']as const)('splits crossing triangles and preserves a closed solid and volume for %s offset',axis=>{const source=Array.from(new THREE.BoxGeometry(20,20,20).toNonIndexed().getAttribute('position').array);for(const fixedEnd of ['min','max']as const){const r=offsetEndTriangles(source,{axis,fixedEnd,keepFixed:2,keepMoving:3,offsetU:17,offsetV:-9});const report=holeMeshReport(r.positions);expect(report.basicChecksPass,JSON.stringify(report)).toBe(true);expect(report.signedVolumeMm3).toBeCloseTo(8000,3);expect(r.positions.length).toBeGreaterThan(source.length);const a=['x','y','z'].indexOf(axis),[u,v]=[0,1,2].filter(i=>i!==a);for(const sign of [-1,1]){const p:[number,number,number]=[0,0,0];p[a]=sign*10;const mapped=r.mapPoint(p);mapped[1]-=r.nextSize[1]/2;const world=mapped.map((n,i)=>n+r.rootShift[i]);const moving=sign===(fixedEnd==='min'?1:-1);expect(world[a]).toBeCloseTo(p[a],8);expect(world[u]).toBeCloseTo(p[u]+(moving?17:0),8);expect(world[v]).toBeCloseTo(p[v]+(moving?-9:0),8);}}});
 it('keeps the fan fixed, translates the GPU flange, and keeps both labels valid with identical areas',()=>{const{shape,root}=fixture();const before=readEndConnections(shape,root),fixed=before.find(f=>f.name==='Fan')!,moving=before.find(f=>f.name==='GPU')!;const next=offsetConnection(shape,root,{fixedFaceId:fixed.id,movingFaceId:moving.id,keepFixed:2,keepMoving:2,offsetU:9,offsetV:-5});const{object,mesh}=after(next,root),end=readEndConnections(next,object);expect(new THREE.Vector3(...end.find(f=>f.name==='Fan')!.worldCenter).distanceTo(new THREE.Vector3(...fixed.worldCenter))).toBeLessThan(1e-6);const actual=end.find(f=>f.name==='GPU')!.worldCenter;expect(actual).toEqual([moving.worldCenter[0],moving.worldCenter[1]+9,moving.worldCenter[2]-5]);expect(next.faceAnnotations!.map(a=>measureAnnotatedFace(mesh,a)).every(r=>r.status==='valid'&&Math.abs(r.areaMm2-120)<1e-6)).toBe(true);expect(shape.width).toBe(20);});
 it('retains the world anchor even with rotation, mirror and downward movement',()=>{const{shape,root}=fixture();shape.rotation=31;shape.rotationX=23;shape.mirrorZ=true;root.rotation.set(23*Math.PI/180,31*Math.PI/180,0);root.scale.z=-1;root.updateMatrixWorld(true);const ends=readEndConnections(shape,root),fixed=ends.find(e=>e.name==='Fan')!,moving=ends.find(e=>e.name==='GPU')!;const next=offsetConnection(shape,root,{fixedFaceId:fixed.id,movingFaceId:moving.id,keepFixed:2,keepMoving:2,offsetU:-18,offsetV:7});const{object}=after(next,root),actual=readEndConnections(next,object).find(e=>e.id===fixed.id)!;expect(new THREE.Vector3(...actual.worldCenter).distanceTo(new THREE.Vector3(...fixed.worldCenter))).toBeLessThan(1e-5);expect(next.elevation).not.toBe(0);});

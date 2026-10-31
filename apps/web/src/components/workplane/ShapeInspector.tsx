@@ -393,7 +393,7 @@ export function ShapeInspector({
   onHolesModeChange,
   holeEditor,
   sectionRequest,offsetSessionVersion,onEndOffsetReset,onEndOffsetPairChange,
-  endConnections,onEndOffset,onEndOffsetPreview,onEndOffsetClear,
+  endConnections,currentEndConnections,onEndOffset,onEndOffsetPreview,onEndOffsetClear,
 }: {
   sectionRequest?:InspectorSectionRequest|null;
   offsetSessionVersion:number;
@@ -411,6 +411,7 @@ export function ShapeInspector({
   onHolesModeChange: (active:boolean) => void;
   holeEditor: ReactNode;
   endConnections: EndConnection[];
+  currentEndConnections?: EndConnection[];
   onEndOffset:(options:ConnectionOffsetOptions)=>void|Promise<void>;
   onEndOffsetPreview:(options:ConnectionOffsetOptions)=>void|Promise<void>;
   onEndOffsetClear:()=>void;
@@ -645,7 +646,7 @@ export function ShapeInspector({
           </div>
         ) : null}
       </div>
-      <div data-inspector-section="offset"><EndOffsetPanel onPairChange={onEndOffsetPairChange} sessionVersion={offsetSessionVersion} onReset={onEndOffsetReset} openRequest={openRequest("offset")} key={`offset-${shape.id}`} connections={endConnections} locked={locked} onApply={onEndOffset} onPreview={onEndOffsetPreview} onClear={onEndOffsetClear}/></div>
+      <div data-inspector-section="offset"><EndOffsetPanel onPairChange={onEndOffsetPairChange} sessionVersion={offsetSessionVersion} onReset={onEndOffsetReset} openRequest={openRequest("offset")} key={`offset-${shape.id}`} connections={endConnections} currentConnections={currentEndConnections} locked={locked} onApply={onEndOffset} onPreview={onEndOffsetPreview} onClear={onEndOffsetClear}/></div>
       <div data-inspector-section="floor"><FloorRotationPanel openRequest={openRequest("floor")} key={`floor-${shape.id}`} locked={locked} picking={floorPicking} onRotate={onFloorRotate} onPick={onFloorPick} /></div>
       <div data-inspector-section="stretch"><AxialStretchPanel openRequest={openRequest("stretch")} key={shape.id} shape={shape} onStretch={onStretch} onPreview={onStretchPreview} /></div>
       {shape.kind !== "gear" ? (

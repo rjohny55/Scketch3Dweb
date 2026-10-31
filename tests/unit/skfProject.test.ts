@@ -17,6 +17,15 @@ import {
 } from "@/lib/skfProject";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
 import type { ShapeKind, WorkplaneShape } from "@/types/scketch3dweb";
+import type {RulerDeformationStep} from '@/lib/rulerDeformation';
+
+it('round-trips unnamed-surface deformation anchors and part deformation history',async()=>{
+ const step:RulerDeformationStep={direction:[1,0,0],low:-8,high:8,delta:[0,3,0],center:[0,1.5,0],sourceSize:[20,16,18],targetSize:[20,19,18]};
+ const model=shape('box','deformed',{rulerDeformations:[step]});
+ const rulers={points:[{id:'a',x:0,y:0,z:0,attachment:{shapeId:model.id,normalized:[-.49,.5,0] as [number,number,number],deformationAnchor:[-.49,.5,0] as [number,number,number]}},{id:'b',x:1,y:0,z:0,attachment:{shapeId:model.id,normalized:[.49,.5,0] as [number,number,number],deformationAnchor:[.49,.5,0] as [number,number,number]}}],segments:[{id:'s',startId:'a',endId:'b'}]};
+ const restored=await importSkfProject(await exportSkfProject(input([model],{rulers})));
+ expect(restored.shapes[0].rulerDeformations).toEqual([step]);expect(restored.rulers).toEqual(rulers);
+});
 
 function shape(kind: ShapeKind, id = `${kind}-1`, overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
   return {

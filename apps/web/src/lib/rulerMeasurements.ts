@@ -20,10 +20,25 @@ export function rulerInclinationDegrees(start: readonly number[], end: readonly 
   return Math.atan2(Math.abs(end[1] - start[1]), Math.hypot(end[0] - start[0], end[2] - start[2])) * 180 / Math.PI;
 }
 
+/** A level reads zero both when horizontal and when plumb; retain the reference explicitly. */
+export function rulerLevel(start: readonly number[], end: readonly number[]) {
+  const inclination = rulerInclinationDegrees(start, end);
+  const reference = inclination > 45 ? 'vertical' as const : 'horizontal' as const;
+  return { reference, deviationDegrees: reference === 'vertical' ? 90 - inclination : inclination };
+}
+
+/** Signed travel of the vial bubble, clipped to a ±2° visual scale. */
+export function rulerBubblePosition(start: readonly number[], end: readonly number[]) {
+  const level = rulerLevel(start, end), dx = end[0] - start[0], dy = end[1] - start[1], dz = end[2] - start[2];
+  const direction = level.reference === 'horizontal' ? Math.sign(dy) : Math.sign(Math.abs(dx) >= Math.abs(dz) ? dx : dz);
+  return Math.max(-1, Math.min(1, direction * level.deviationDegrees / 2));
+}
+
 export function rulerMeasurementLabel(lengthMm: number, start: readonly number[], end: readonly number[], accuracy: MeasurementAccuracy) {
   const length = (Math.abs(lengthMm) < 0.5 * 10 ** -accuracy ? 0 : lengthMm).toFixed(accuracy);
-  const angle = Number(rulerInclinationDegrees(start, end).toFixed(2));
-  return `${length} (${angle}°)`;
+  const level = rulerLevel(start, end);
+  const angle = Number(level.deviationDegrees.toFixed(2));
+  return `${length} (${level.reference === 'vertical' ? 'V' : 'H'} Δ${angle}°)`;
 }
 
 /** Uses resolved world coordinates, including live object transforms and curved edge paths. */
@@ -46,6 +61,7 @@ export function rulerMeasurementsSnapshot(points: RulerWorldPoint[], segments: R
       ...(segment.edgeShapeId ? { edgeShapeId: segment.edgeShapeId } : {}),
       lengthMm, straightDistanceMm: distance(start.position, end.position),
       inclinationDegrees: rulerInclinationDegrees(start.position, end.position),
+      level: rulerLevel(start.position, end.position),
       label: rulerMeasurementLabel(lengthMm, start.position, end.position, accuracy),
       start: start.position, end: end.position,
       delta: end.position.map((v, axis) => v-start.position[axis]),

@@ -4,8 +4,9 @@ import {faceGeometryKey} from '@/lib/faceAnnotations';
 import type {FaceAnnotation,WorkplaneShape} from '@/types/scketch3dweb';
 type Point=[number,number,number];
 export type EndOffsetOptions={axis:'x'|'y'|'z';fixedEnd:'min'|'max';keepFixed:number;keepMoving:number;offsetU:number;offsetV:number};
-export type ConnectionOffsetOptions={fixedFaceId:string;movingFaceId:string;keepFixed:number;keepMoving:number;offsetU:number;offsetV:number;mode?:'offset'|'center';coordinateSystem?:'local'|'floor'};
-export type EndConnection={id:string;name:string;axis:'x'|'y'|'z';side:'min'|'max';localNormal:Point;localPoints:Point[];localCenter:Point;worldCenter:Point;worldNormal:Point;localBounds:{min:Point;max:Point};axisSizeMm:number;shapeId:string};
+export type ConnectionAnchor = 'min'|'center'|'max';
+export type ConnectionOffsetOptions={fixedFaceId:string;movingFaceId:string;keepFixed:number;keepMoving:number;offsetU:number;offsetV:number;mode?:'offset'|'center'|'position';coordinateSystem?:'local'|'floor';fixedAnchorU?:ConnectionAnchor;movingAnchorU?:ConnectionAnchor;fixedAnchorV?:ConnectionAnchor;movingAnchorV?:ConnectionAnchor};
+export type EndConnection={id:string;name:string;axis:'x'|'y'|'z';side:'min'|'max';localNormal:Point;localPoints:Point[];worldPoints:Point[];localCenter:Point;worldCenter:Point;worldNormal:Point;localBounds:{min:Point;max:Point};axisSizeMm:number;shapeId:string};
 const axes=['x','y','z'] as const;
 /** A transverse shear with rigid plateaus. Its Jacobian determinant is 1; the original channel is carried with its walls. */
 export function offsetEndTriangles(source:number[],options:EndOffsetOptions):MeshDeformation{
@@ -41,7 +42,7 @@ export function readEndConnections(shape:WorkplaneShape,root:THREE.Object3D):End
   if(bounds.isEmpty())return[];
   const plane=normal.dot(new THREE.Vector3(...points[0]));if(points.some(p=>Math.abs(normal.dot(new THREE.Vector3(...p))-plane)>.001))return[];
   const center=bounds.getCenter(new THREE.Vector3());center.addScaledVector(normal,plane-normal.dot(center));const coordinate=center.getComponent(axis);const side=coordinate<(box.min.getComponent(axis)+box.max.getComponent(axis))/2?'min':'max';
-  return[{id:label.id,name:label.name,shapeId:shape.id,axis:axes[axis],side,localNormal:normal.toArray() as Point,localPoints:points,axisSizeMm:box.max.getComponent(axis)-box.min.getComponent(axis),localCenter:center.toArray() as Point,worldCenter:root.localToWorld(center.clone()).toArray() as Point,worldNormal:new THREE.Vector3(...label.localNormal).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(surface.matrixWorld)).toArray() as Point,localBounds:{min:bounds.min.toArray() as Point,max:bounds.max.toArray() as Point}}];
+  return[{id:label.id,name:label.name,shapeId:shape.id,axis:axes[axis],side,localNormal:normal.toArray() as Point,localPoints:points,worldPoints:points.map(p=>root.localToWorld(new THREE.Vector3(...p)).toArray() as Point),axisSizeMm:box.max.getComponent(axis)-box.min.getComponent(axis),localCenter:center.toArray() as Point,worldCenter:root.localToWorld(center.clone()).toArray() as Point,worldNormal:new THREE.Vector3(...label.localNormal).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(surface.matrixWorld)).toArray() as Point,localBounds:{min:bounds.min.toArray() as Point,max:bounds.max.toArray() as Point}}];
  });
 }
 export type ConnectionFrame={direction:Point;u:Point;v:Point;low:number;high:number;centerU:number;centerV:number};
@@ -76,6 +77,19 @@ export function floorConnectionFrame(connections:EndConnection[],fixedId:string,
  const horizontalAxis=Math.abs(horizontal.x)>.99999?'X':Math.abs(horizontal.z)>.99999?'Z':'XZ';
  return {horizontal:horizontal.toArray() as Point,horizontalAxis,centerVertical:delta.y,centerHorizontal:delta.dot(horizontal)};
 }
+export function connectionPositionGaps(connections:EndConnection[],options:ConnectionOffsetOptions) {
+ const fixed=connections.find(c=>c.id===options.fixedFaceId),moving=connections.find(c=>c.id===options.movingFaceId);
+ if(!fixed||!moving||fixed===moving)throw Error('Select two different faces.');
+ const floor=options.coordinateSystem==='floor',frame=floor?floorConnectionFrame(connections,fixed.id,moving.id):connectionOffsetFrame(connections,options);
+ const directions=floor?[[0,1,0],(frame as ReturnType<typeof floorConnectionFrame>).horizontal]:[(frame as ConnectionFrame).u,(frame as ConnectionFrame).v];
+ const anchor=(face:EndConnection,direction:number[],kind:ConnectionAnchor='min')=>{
+  if(!['min','center','max'].includes(kind))throw Error('Invalid reference edge.');
+  const values=(floor?face.worldPoints:face.localPoints).map(p=>p.reduce((s,n,i)=>s+n*direction[i],0));
+  let min=Infinity,max=-Infinity;for(const n of values){min=Math.min(min,n);max=Math.max(max,n);}
+  return kind==='min'?min:kind==='max'?max:(min+max)/2;
+ };
+ return {vertical:anchor(moving,directions[0],options.movingAnchorU)-anchor(fixed,directions[0],options.fixedAnchorU),horizontal:anchor(moving,directions[1],options.movingAnchorV)-anchor(fixed,directions[1],options.fixedAnchorV)};
+}
 function offsetAlongFrame(source:number[],frame:ConnectionFrame,offsetU:number,offsetV:number,displacement?:Point):MeshDeformation{
  if(![offsetU,offsetV].every(Number.isFinite)||Math.max(Math.abs(offsetU),Math.abs(offsetV))>10000)throw new Error('Смещение должно быть конечным числом в пределах 10000 мм.');
  const n=new THREE.Vector3(...frame.direction),u=new THREE.Vector3(...frame.u),v=new THREE.Vector3(...frame.v),delta=displacement?new THREE.Vector3(...displacement):u.clone().multiplyScalar(offsetU).addScaledVector(v,offsetV);
@@ -90,15 +104,17 @@ function offsetAlongFrame(source:number[],frame:ConnectionFrame,offsetU:number,o
   if(raw.length>3_000_000)throw new Error('После разделения сетка превышает миллион вершин.');
  }
  const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];raw.forEach((x,i)=>{min[i%3]=Math.min(min[i%3],x);max[i%3]=Math.max(max[i%3],x);});const center=min.map((x,i)=>(x+max[i])/2) as Point,nextSize=max.map((x,i)=>x-min[i]);const normalize=(p:Point)=>p.map((x,i)=>x-(i===1?min[i]:center[i])) as Point;
- return{positions:raw.map((x,i)=>Math.fround(x-(i%3===1?min[1]:center[i%3]))),sourceTriangles,nextSize,rootShift:center,mapPoint:p=>normalize(mapRaw(p))};
+ return{positions:raw.map((x,i)=>Math.fround(x-(i%3===1?min[1]:center[i%3]))),sourceTriangles,nextSize,rootShift:center,mapPoint:p=>normalize(mapRaw(p)),rulerMap:{direction:frame.direction,delta:delta.toArray() as Point,center,low:frame.low,high:frame.high}};
 }
 export function offsetConnection(shape:WorkplaneShape,root:THREE.Object3D,options:ConnectionOffsetOptions){
  const connections=readEndConnections(shape,root),frame=connectionOffsetFrame(connections,options);
  if(options.coordinateSystem==='floor'){
   const floor=floorConnectionFrame(connections,options.fixedFaceId,options.movingFaceId);
-  const vertical=options.mode==='center'?floor.centerVertical:options.offsetU,horizontal=options.mode==='center'?floor.centerHorizontal:options.offsetV;
+  const gaps=options.mode==='position'?connectionPositionGaps(connections,options):null;
+  const vertical=options.mode==='center'?floor.centerVertical:options.offsetU-(gaps?.vertical??0),horizontal=options.mode==='center'?floor.centerHorizontal:options.offsetV-(gaps?.horizontal??0);
   const delta=new THREE.Vector3(...floor.horizontal).multiplyScalar(horizontal).add(new THREE.Vector3(0,vertical,0)).applyMatrix3(new THREE.Matrix3().setFromMatrix4(root.matrixWorld.clone().invert()));
   return deformRenderedShape(shape,root,source=>offsetAlongFrame(source,frame,vertical,horizontal,delta.toArray() as Point));
  }
- return deformRenderedShape(shape,root,source=>offsetAlongFrame(source,frame,options.mode==='center'?frame.centerU:options.offsetU,options.mode==='center'?frame.centerV:options.offsetV));
+ const gaps=options.mode==='position'?connectionPositionGaps(connections,options):null;
+ return deformRenderedShape(shape,root,source=>offsetAlongFrame(source,frame,options.mode==='center'?frame.centerU:options.offsetU-(gaps?.vertical??0),options.mode==='center'?frame.centerV:options.offsetV-(gaps?.horizontal??0)));
 }

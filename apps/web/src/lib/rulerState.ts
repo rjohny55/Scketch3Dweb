@@ -1,5 +1,7 @@
 /** Durable ruler data uses world coordinates plus optional object-local attachments. */
 export type RulerAttachment = {
+  deformationAnchor?: [number, number, number];
+  faceAnchor?: { faceId: string; offset: [number, number, number] };
   localNormal?: [number, number, number];
   shapeId: string;
   normalized: [number, number, number];
@@ -7,7 +9,7 @@ export type RulerAttachment = {
   topologyKey?: string;
 };
 export type RulerPoint = { id: string; x: number; y: number; z: number; attachment?: RulerAttachment };
-export type RulerEdgeAttachment = { key: string; shapeId: string; normalizedPoints: Array<[number, number, number]>; topologyKey?: string };
+export type RulerEdgeAttachment = { key: string; shapeId: string; normalizedPoints: Array<[number, number, number]>; deformationPoints?: Array<[number, number, number]>; topologyKey?: string };
 export type RulerSegment = { id: string; startId: string; endId: string; edge?: RulerEdgeAttachment };
 export type RulerState = { points: RulerPoint[]; segments: RulerSegment[] };
 
@@ -43,6 +45,8 @@ export function restoreRulerState(value?: unknown): RulerState {
       const a = record(p.attachment);
       if (a.kind !== undefined && !["vertex", "edge", "surface"].includes(String(a.kind))) throw new Error("Invalid ruler attachment");
       result.attachment = { shapeId: text(a.shapeId), normalized: vector(a.normalized),
+        ...(a.deformationAnchor !== undefined ? { deformationAnchor: vector(a.deformationAnchor) } : {}),
+        ...(a.faceAnchor !== undefined ? { faceAnchor: { faceId: text(record(a.faceAnchor).faceId), offset: vector(record(a.faceAnchor).offset) } } : {}),
         ...(a.localNormal !== undefined ? { localNormal: vector(a.localNormal) } : {}),
         ...(a.kind !== undefined ? { kind: a.kind as RulerAttachment["kind"] } : {}),
         ...(a.topologyKey !== undefined ? { topologyKey: text(a.topologyKey, 1_000_000) } : {}) };
@@ -59,6 +63,10 @@ export function restoreRulerState(value?: unknown): RulerState {
       const e = record(s.edge);
       if (!Array.isArray(e.normalizedPoints) || e.normalizedPoints.length < 2 || (edgePoints += e.normalizedPoints.length) > 100000) throw new Error("Invalid ruler edge");
       result.edge = { key: text(e.key), shapeId: text(e.shapeId), normalizedPoints: e.normalizedPoints.map(vector), ...(e.topologyKey !== undefined ? { topologyKey: text(e.topologyKey, 1_000_000) } : {}) };
+      if (e.deformationPoints !== undefined) {
+        if (!Array.isArray(e.deformationPoints) || e.deformationPoints.length !== e.normalizedPoints.length || (edgePoints += e.deformationPoints.length) > 200000) throw Error('Invalid ruler deformation edge');
+        result.edge.deformationPoints = e.deformationPoints.map(vector);
+      }
     }
     return result;
   });

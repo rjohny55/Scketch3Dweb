@@ -3,6 +3,9 @@ export type Language = "ru" | "en";
 const dictionary: Record<string, string> = russian;
 const folded = new Map(Object.entries(dictionary).map(([en, ru]) => [en.toLowerCase(), ru]));
 const patterns: [RegExp, (...groups: string[]) => string][] = [
+  [/^Target (Y|X|Z|XZ) \(mm\)$/, (axis) => `Нужное расстояние ${axis} (мм)`],
+  [/^Fixed reference edge (Y|X|Z|XZ)$/, (axis) => `База неподвижной грани ${axis}`],
+  [/^Moving reference edge (Y|X|Z|XZ)$/, (axis) => `Край подвижной грани ${axis}`],
   [/^Rename face label: (.+)$/, (name) => `Переименовать метку грани: ${name}`],
   [/^Delete face label: (.+)$/, (name) => `Удалить метку грани: ${name}`],
   [/^Increase (.+)$/, (label) => `Увеличить: ${dictionary[label] ?? label}`],

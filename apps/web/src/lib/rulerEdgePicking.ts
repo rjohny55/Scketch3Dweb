@@ -1,4 +1,15 @@
-import {Box3,BufferGeometry,Camera,Line,LineSegments,LineLoop,Matrix4,Vector3} from 'three';
+import {Box3,BufferGeometry,Camera,EdgesGeometry,Line,LineSegments,LineLoop,Matrix4,Mesh,Vector3} from 'three';
+const surfaceEdges=new WeakMap<Mesh,{geometry:BufferGeometry;attribute:unknown;version:number;line:LineSegments}>();
+/** Picking must not depend on whether decorative wireframe edges are displayed. */
+export function rulerSurfaceEdges(surface:Mesh):LineSegments{
+ const geometry=surface.geometry,p=geometry.getAttribute('position'),version='version' in p?p.version:p.data.version;
+ let cached=surfaceEdges.get(surface);
+ if(!cached||cached.geometry!==geometry||cached.attribute!==p||cached.version!==version){
+  if(cached){cached.line.geometry.dispose();(Array.isArray(cached.line.material)?cached.line.material:[cached.line.material]).forEach(m=>m.dispose());}
+  cached={geometry,attribute:p,version,line:new LineSegments(new EdgesGeometry(geometry,20))};surfaceEdges.set(surface,cached);
+ }
+ cached.line.matrixWorld.copy(surface.matrixWorld);return cached.line;
+}
 /** Build edge polylines by endpoint adjacency, avoiding a scan of every unused edge. */
 export function chainRulerSegments(segments:Array<[Vector3,Vector3]>){
  if(segments.length<=1)return segments.map(s=>[...s]);
@@ -47,15 +58,27 @@ function screenIndex(line:Line,camera:Camera,width:number,height:number){
   const p=new Float64Array(path.length*4);data.projected.push(p);
   path.forEach((point,i)=>{const v=point.clone().applyMatrix4(matrix);p[i*4]=(v.x+1)*width/2;p[i*4+1]=(1-v.y)*height/2;p[i*4+2]=v.z;p[i*4+3]=matrix.elements[3]*point.x+matrix.elements[7]*point.y+matrix.elements[11]*point.z+matrix.elements[15];});
   for(let i=0;i+1<path.length;i++){const a=i*4,b=a+4;if(p[a+3]<=0||p[b+3]<=0||p[a+2]<-1&&p[b+2]<-1||p[a+2]>1&&p[b+2]>1)continue;const id=data.segments.length;data.segments.push([index,i]);insert(data.edgeGrid,id,Math.min(p[a],p[b]),Math.min(p[a+1],p[b+1]),Math.max(p[a],p[b]),Math.max(p[a+1],p[b+1]));}
-  const endpoints=path.length>2&&path[0].distanceToSquared(path.at(-1)!)<1e-10?[0]:[0,path.length-1];for(const i of endpoints){const a=i*4;if(p[a+3]<=0||Math.abs(p[a+2])>1)continue;const id=data.vertices.length;data.vertices.push([index,i]);insert(data.vertexGrid,id,p[a],p[a+1]);}
+  for(const i of rulerCornerIndices(path)){const a=i*4;if(p[a+3]<=0||Math.abs(p[a+2])>1)continue;const id=data.vertices.length;data.vertices.push([index,i]);insert(data.vertexGrid,id,p[a],p[a+1]);}
  });screenCache.set(line,data);return data;
 }
 export type RulerEdgeHit={distance:number;kind:'vertex'|'edge';point:Vector3;path:Vector3[];pathIndex:number};
+/** Real bends and open ends, not every tessellation point or the seam of a smooth loop. */
+export function rulerCornerIndices(path:Vector3[]):number[]{
+ if(path.length<2)return[];
+ const closed=path.length>2&&path[0].distanceToSquared(path.at(-1)!)<1e-10,count=closed?path.length-1:path.length,result:number[]=[];
+ for(let i=0;i<count;i++){
+  if(!closed&&(i===0||i===count-1)){result.push(i);continue;}
+  const before=path[i].clone().sub(path[(i-1+count)%count]),after=path[(i+1)%count].clone().sub(path[i]);
+  if(before.lengthSq()>1e-12&&after.lengthSq()>1e-12&&before.normalize().dot(after.normalize())<Math.cos(Math.PI/9))result.push(i);
+ }
+ return result;
+}
 /** Query only screen cells near the pointer; rebuild projection only after camera/mesh changes. */
-export function pickRulerLine(line:Line,camera:Camera,width:number,height:number,x:number,y:number):{vertex?:RulerEdgeHit;edge?:RulerEdgeHit}{
+export function pickRulerLine(line:Line,camera:Camera,width:number,height:number,x:number,y:number,retainedPathIndex?:number):{vertex?:RulerEdgeHit;edge?:RulerEdgeHit}{
  const data=screenIndex(line,camera,width,height),candidates=(grid:Map<number,number[]>)=>{const ids=new Set<number>();for(let cy=Math.max(0,Math.floor((y-12)/cellSize));cy<=Math.floor((y+12)/cellSize);cy++)for(let cx=Math.max(0,Math.floor((x-12)/cellSize));cx<=Math.min(data.columns-1,Math.floor((x+12)/cellSize));cx++)for(const id of grid.get(cy*data.columns+cx)??[])ids.add(id);return ids;};
  let vertex:RulerEdgeHit|undefined,edge:RulerEdgeHit|undefined;
- for(const id of candidates(data.vertexGrid)){const[pathIndex,i]=data.vertices[id],p=data.projected[pathIndex],distance=Math.hypot(x-p[i*4],y-p[i*4+1]);if(distance<=9&&(!vertex||distance<vertex.distance))vertex={distance,kind:'vertex',point:data.paths[pathIndex][i].clone().applyMatrix4(line.matrixWorld),path:data.paths[pathIndex],pathIndex};}
- for(const id of candidates(data.edgeGrid)){const[pathIndex,i]=data.segments[id],p=data.projected[pathIndex],a=i*4,b=a+4,dx=p[b]-p[a],dy=p[b+1]-p[a+1],length=dx*dx+dy*dy,s=length>.001?Math.max(0,Math.min(1,((x-p[a])*dx+(y-p[a+1])*dy)/length)):0,distance=Math.hypot(x-p[a]-dx*s,y-p[a+1]-dy*s);if(distance<=12&&(!edge||distance<edge.distance)){const t=s*p[a+3]/(p[b+3]*(1-s)+p[a+3]*s);edge={distance,kind:'edge',point:data.paths[pathIndex][i].clone().lerp(data.paths[pathIndex][i+1],t).applyMatrix4(line.matrixWorld),path:data.paths[pathIndex],pathIndex};}}
+ for(const id of candidates(data.vertexGrid)){const[pathIndex,i]=data.vertices[id],p=data.projected[pathIndex],distance=Math.hypot(x-p[i*4],y-p[i*4+1]);if(distance<=10&&(!vertex||distance<vertex.distance))vertex={distance,kind:'vertex',point:data.paths[pathIndex][i].clone().applyMatrix4(line.matrixWorld),path:data.paths[pathIndex],pathIndex};}
+ for(const id of candidates(data.edgeGrid)){const[pathIndex,i]=data.segments[id],p=data.projected[pathIndex],a=i*4,b=a+4,dx=p[b]-p[a],dy=p[b+1]-p[a+1],length=dx*dx+dy*dy,s=length>.001?Math.max(0,Math.min(1,((x-p[a])*dx+(y-p[a+1])*dy)/length)):0,distance=Math.hypot(x-p[a]-dx*s,y-p[a+1]-dy*s),retained=pathIndex===retainedPathIndex,previousRetained=edge?.pathIndex===retainedPathIndex;
+ if(distance<=(retained?10:6)&&(!edge||(retained&&!previousRetained)||(retained===previousRetained&&distance<edge.distance))){const t=s*p[a+3]/(p[b+3]*(1-s)+p[a+3]*s);edge={distance,kind:'edge',point:data.paths[pathIndex][i].clone().lerp(data.paths[pathIndex][i+1],t).applyMatrix4(line.matrixWorld),path:data.paths[pathIndex],pathIndex};}}
  return{vertex,edge};
 }

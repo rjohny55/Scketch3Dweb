@@ -209,6 +209,7 @@ export type FaceAnnotation = {
 export type FacePaint = FaceAnnotation & { color: string };
 
 export type WorkplaneShape = {
+  rulerDeformations?: import('@/lib/rulerDeformation').RulerDeformationStep[];
   facePaints?: FacePaint[];
   faceAnnotations?: FaceAnnotation[];
   id: string;

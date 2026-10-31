@@ -1,6 +1,14 @@
 import {it,expect} from 'vitest';
 import {restoreRulerState} from '@/lib/rulerState';
 import {assertMcpCommandActive} from '@/lib/scketch3dwebMcpProtocol';
+it('persists face-level anchors and rejects malformed attachment coordinates',()=>{
+ const state={points:[{id:'a',x:0,y:0,z:0,attachment:{shapeId:'part',normalized:[0,0,0],faceAnchor:{faceId:'flange',offset:[1,2,3]}}},{id:'b',x:1,y:0,z:0}],segments:[{id:'s',startId:'a',endId:'b'}]};
+ const restored=restoreRulerState(state);expect(restored).toEqual(state);
+ restored.points[0].attachment!.faceAnchor!.offset[0]=9;
+ expect(state.points[0].attachment!.faceAnchor!.offset[0]).toBe(1);
+ state.points[0].attachment!.faceAnchor!.offset[0]=NaN;
+ expect(()=>restoreRulerState(state)).toThrow(/coordinate/);
+});
 it('rejects duplicate points, nonfinite coordinates and oversized ruler state',()=>{
  const p={id:'a',x:0,y:0,z:0};
  expect(()=>restoreRulerState({points:[p,p],segments:[]})).toThrow(/Duplicate/);

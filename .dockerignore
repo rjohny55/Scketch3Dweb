@@ -12,6 +12,7 @@ apps/web/out
 coverage
 playwright-report
 test-results
+dist
 *.log
 *.tsbuildinfo
 **/.next-dev

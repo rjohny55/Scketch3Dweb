@@ -8,7 +8,7 @@
 
 ![Scketch3Dweb editor with the built-in RP1 robot demo](docs/images/demo-editor.png)
 
-*Actual editor screenshot of the built-in RP1 robot demo. No account credentials are shown.*
+*Actual dark-theme editor screenshot of the built-in RP1 robot demo. No account credentials are shown.*
 
 ## Features
 

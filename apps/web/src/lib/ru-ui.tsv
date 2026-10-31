@@ -1274,3 +1274,10 @@ Click a planar face. Esc to exit.	Нажмите на плоскую грань.
 Calculating geometry…	Расчёт геометрии…
 Step must be a positive number.	Шаг должен быть положительным числом.
 mm²	мм²
+120 mm fan adapter	Переходник для вентилятора 120 мм
+Editable SKF + STL	Редактируемый SKF + STL
+Named flanges and ruler	Метки фланцев и рулетка
+Flange adapter connecting a 120 × 120 mm fan to an NVIDIA CMP 170 graphics card. Open an editable copy; the built-in original stays intact.	Фланец для соединения вентилятора 120 × 120 мм с видеокартой NVIDIA CMP 170. Открывается редактируемая копия; встроенный оригинал остаётся неизменным.
+Open fan adapter demo	Открыть демо фланца
+Download STL	Скачать STL
+Fitted model · 74.4 mm ruler distance · check fit and slicer settings before printing	Подогнанная модель · размер по рулетке 74,4 мм · перед печатью проверьте посадку и настройки слайсера

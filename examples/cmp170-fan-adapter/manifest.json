@@ -1,0 +1,33 @@
+{
+  "id": "cmp170-fan-adapter",
+  "name": "CMP 170 · 120 mm fan adapter",
+  "description": "Flange adapter connecting a 120 × 120 mm fan to an NVIDIA CMP 170 graphics card.",
+  "units": "mm",
+  "fanSizeMm": [
+    120,
+    120
+  ],
+  "rulerDistanceMm": 74.4,
+  "lateralOffsetMm": 11,
+  "axialSpanMm": 73.58233483656251,
+  "boundsZUpMm": [
+    73.58233642578125,
+    120,
+    133
+  ],
+  "triangleCount": 37256,
+  "geometrySha256": "b10e990ea9fbad19627cf9aa352fe892c7daad15787d319c0c9902a5a4e226c9",
+  "files": {
+    "project": "cmp170-120mm-fan-adapter.skf",
+    "mesh": "cmp170-120mm-fan-adapter.stl",
+    "preview": "preview.png"
+  },
+  "sha256": {
+    "project": "d44d105ea4691a80a3bf902f20f052ebb558f725b821919823073fee9c150ab7",
+    "mesh": "7b094ce86c6cef75da9f4ba3ade7b4a7bf8b21257defecc6166ddb00710438ed"
+  },
+  "sourceSha256": {
+    "project": "90db3257104ba7c2210b5816c05c8f74a039df7ffc53e39982b99fc00cb86a78",
+    "mesh": "9cd05faf01ac19ee86cbd0cf46f0bc197760eba39b9ba5c910188ca2c36a732d"
+  }
+}

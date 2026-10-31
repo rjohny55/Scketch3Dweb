@@ -1,6 +1,6 @@
 {
   "name": "scketch3dweb",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "private": true,
   "description": "Browser-based 3D modeling with shared projects, version history and personal MCP access.",
   "author": {
@@ -19,9 +19,10 @@
     "setup:local": "node scripts/setup-local.mjs",
     "mcp:http": "node --env-file=.env scripts/mcp-http/server.mjs",
     "copy:occt": "node scripts/copy-occt-wasm.mjs",
-    "predev": "npm run copy:occt",
+    "predev": "npm run copy:occt && npm run stage:demos",
     "dev": "next dev apps/web --webpack",
-    "prebuild": "npm run copy:occt",
+    "prebuild": "npm run copy:occt && npm run stage:demos",
+    "stage:demos": "node scripts/stage-demo-assets.mjs",
     "build": "next build apps/web --webpack",
     "export": "set STATIC_EXPORT=true&& next build apps/web && node scripts/verify-static-worker-assets.mjs",
     "verify:static-worker-assets": "node scripts/verify-static-worker-assets.mjs",

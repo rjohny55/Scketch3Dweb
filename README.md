@@ -105,7 +105,7 @@ Download Linux and Windows x64 desktop packages from [GitHub Releases](https://g
 - Linux: AppImage or Debian/Ubuntu `.deb` package.
 - Windows: `.exe` installer with a selectable installation directory.
 
-The packages are unsigned. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.10 release notes](docs/releases/1.0.10.md).
+The packages are unsigned. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.11 release notes](docs/releases/1.0.11.md).
 
 To build the desktop application from source:
 
@@ -115,6 +115,14 @@ npm run desktop:pack
 ```
 
 Packaging depends on the target OS and build tools. For distributable packages, use `npm run desktop:dist -- --linux --x64 --publish never` or the corresponding `--win` target. Cross-building Windows on Linux requires Wine.
+
+## Featured example: NVIDIA CMP 170 fan adapter
+
+A fitted **flange adapter connecting a 120 × 120 mm fan to an NVIDIA CMP 170 graphics card** is included as a built-in demo. Open it from Home to explore and edit a copy, with named flange faces and a saved 74.4 mm ruler measurement.
+
+![CMP 170 fan adapter in the editor](examples/cmp170-fan-adapter/editor-preview.png)
+
+The [example directory](examples/cmp170-fan-adapter) contains the editable SKF project, STL mesh, model preview, checksums, and dimensions. Both formats are also downloadable from the application and GitHub Releases. Check fit and slicer settings before printing; this is not an official NVIDIA accessory.
 
 ## Project layout
 

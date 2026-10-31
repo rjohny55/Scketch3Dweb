@@ -57,6 +57,7 @@ verification/
 # Internal workstation notes are not publication documentation.
 /CHECKLIST.txt
 /СТАРТ.txt
+/apps/web/public/assets/demos/cmp170-fan-adapter/
 .env*
 !.env.example
 *.sqlite

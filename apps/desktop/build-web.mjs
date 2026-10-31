@@ -26,6 +26,7 @@ function runNode(args, env = process.env) {
 }
 
 runNode([copyOcctScript]);
+runNode([path.join(repoRoot, "scripts", "stage-demo-assets.mjs")]);
 runNode([nextBin, "build", "apps/web", "--webpack"], {
   ...process.env,
   SCKETCH3DWEB_DOCKER_BUILD: "true",

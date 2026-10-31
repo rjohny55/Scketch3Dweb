@@ -9,6 +9,7 @@ import { PROJECT_CATEGORIES } from "@/lib/projectCategories";
 import { UserAdministration } from "@/components/UserAdministration";
 import { accountStorageKey, accountDatabaseName, getClientAccount, accountProjectLinks, linkAccountProject, pauseAccountProjectForDeletion, resumeAccountProject, forgetAccountProject, reconcileAccountProjectLinks, isAccountProjectDeleted, saveAccountSnapshot, updateAccountThumbnail, publishAccountSnapshot, setAccountProjectSharing, type AccountProject } from "@/lib/accountClient";
 import { BuiltinRobotDemo } from '@/components/BuiltinRobotDemo';
+import { BuiltinFlangeDemo } from '@/components/BuiltinFlangeDemo';
 import { AppAppearanceSettings } from "@/components/AppAppearanceSettings";
 import { McpConnectionSettings } from "@/components/McpConnectionSettings";
 import { T, L } from "@/components/Localization";
@@ -1357,7 +1358,7 @@ function HomeWorkspace() {
       {editorStarted && canRenderEditor ? (
         <div className={view === "editor" ? "editor-stage active" : "editor-stage"} aria-hidden={view !== "editor"}>
           <Scketch3DwebEditor
-            autoFrameOnOpen={activeProjectShapeEntry?.shapes.some(shape=>shape.id.startsWith("rp1-assembly-"))??false}
+            autoFrameOnOpen={activeProjectShapeEntry?.shapes.some(shape=>shape.id.startsWith("rp1-assembly-")||shape.id.startsWith("cmp170-fan-adapter-"))??false}
             initialRulers={activeProjectShapeEntry?.rulers}
             initialAssets={activeProjectShapeEntry?.assets ?? []}
             initialShapes={activeProjectShapeEntry?.shapes ?? []}
@@ -1765,6 +1766,7 @@ function Dashboard({
                   <span className="dashboard-action-copy"><strong><T text="Continue workplane" /></strong><small><T text="Pick up where you left off" /></small></span>
                 </button>
               </div>
+              <BuiltinFlangeDemo onOpen={onOpenBuiltinDemo}/>
               <BuiltinRobotDemo onOpen={onOpenBuiltinDemo}/>
               {dashboardNotice ? (
                 <div className="dashboard-import-notice" role="status">

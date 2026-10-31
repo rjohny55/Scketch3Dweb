@@ -1959,6 +1959,7 @@ function Dashboard({
           <div className="dashboard-version-row">
             <span><T text={"Scketch3Dweb version"} /></span>
             <strong>{desktopAppVersion ?? SKF_CREATED_WITH_VERSION}</strong>
+            <a href="https://github.com/rjohny55/Scketch3Dweb" target="_blank" rel="noopener noreferrer">GitHub <ArrowUpRight size={14} aria-hidden="true" /></a>
           </div>
           <div className="dashboard-version-row">
             <span><T text={"License"} /></span>

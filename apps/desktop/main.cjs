@@ -76,7 +76,10 @@ async function startPackagedWebServer() {
       PORT: String(port),
       SCKETCH3DWEB_DESKTOP: "1",
       SCKETCH3DWEB_DESKTOP_VERSION: app.getVersion(),
-      SCKETCH3DWEB_SHARED_PROJECTS_DIR: "",
+      // Installed resources can be read-only (notably Program Files on Windows).
+      // Keep accounts and shared projects outside the installation/update tree.
+      SCKETCH3DWEB_SHARED_PROJECTS_DIR: path.join(app.getPath("userData"), "projects"),
+      SCKETCH3DWEB_MODELS_DIR: path.join(app.getPath("userData"), "models"),
       NEXT_TELEMETRY_DISABLED: "1",
     },
   });

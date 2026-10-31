@@ -1,14 +1,20 @@
 {
   "name": "scketch3dweb",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "private": true,
   "description": "Browser-based 3D modeling with shared projects, version history and personal MCP access.",
   "author": {
-    "name": "Scketch3Dweb contributors"
+    "name": "Scketch3Dweb contributors",
+    "email": "rjohny55@users.noreply.github.com"
   },
+  "homepage": "https://github.com/rjohny55/Scketch3Dweb",
   "desktopName": "scketch3dweb",
   "main": "apps/desktop/main.cjs",
   "license": "(MIT OR Apache-2.0)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rjohny55/Scketch3Dweb.git"
+  },
   "scripts": {
     "setup:local": "node scripts/setup-local.mjs",
     "mcp:http": "node --env-file=.env scripts/mcp-http/server.mjs",

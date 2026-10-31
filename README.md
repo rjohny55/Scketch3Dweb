@@ -100,14 +100,21 @@ npm run build
 
 ### Desktop application
 
-An Electron wrapper and packaging configuration are included:
+Download Linux and Windows x64 desktop packages from [GitHub Releases](https://github.com/rjohny55/Scketch3Dweb/releases). Docker and a separate Node.js installation are not required to run the packaged app.
+
+- Linux: AppImage or Debian/Ubuntu `.deb` package.
+- Windows: `.exe` installer with a selectable installation directory.
+
+The packages are unsigned. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.10 release notes](docs/releases/1.0.10.md).
+
+To build the desktop application from source:
 
 ```sh
 npm run desktop:dev
 npm run desktop:pack
 ```
 
-Packaging depends on the target OS and build tools. This publication does not include signed desktop installers.
+Packaging depends on the target OS and build tools. For distributable packages, use `npm run desktop:dist -- --linux --x64 --publish never` or the corresponding `--win` target. Cross-building Windows on Linux requires Wine.
 
 ## Project layout
 
@@ -129,7 +136,7 @@ Built with Next.js, React, TypeScript, and Three.js. Geometry tooling includes M
 - CAD edge operations depend on the geometry and do not work on every arbitrary mesh.
 - Material estimates are approximate, not a manufacturing quote or a substitute for a slicer.
 - Never commit `.env`, MCP keys, account data, or private models. Do not expose the MCP controller without access controls.
-- Older installations with different technical names require an explicit configuration/data migration. Automatic update delivery is disabled until you configure your own release channel.
+- Older installations with different technical names require an explicit configuration/data migration. Desktop packages use this repository's GitHub release channel; server/Docker automatic update delivery remains unconfigured.
 
 ## Contributing
 

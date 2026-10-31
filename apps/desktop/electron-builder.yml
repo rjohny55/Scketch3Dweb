@@ -2,6 +2,11 @@ appId: com.scketch3dweb.desktop
 productName: Scketch3Dweb
 asar: true
 
+publish:
+  provider: github
+  owner: rjohny55
+  repo: Scketch3Dweb
+
 directories:
   output: dist/desktop
 
@@ -46,5 +51,6 @@ linux:
   icon: apps/web/public/assets/scketch3dweb/scketch3dweb-logo.png
   target:
     - AppImage
+    - deb
   category: Graphics
   artifactName: ${productName}-${version}-${arch}.${ext}

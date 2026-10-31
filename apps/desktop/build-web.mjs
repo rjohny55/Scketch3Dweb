@@ -26,7 +26,7 @@ function runNode(args, env = process.env) {
 }
 
 runNode([copyOcctScript]);
-runNode([nextBin, "build", "apps/web"], {
+runNode([nextBin, "build", "apps/web", "--webpack"], {
   ...process.env,
   SCKETCH3DWEB_DOCKER_BUILD: "true",
   NEXT_TELEMETRY_DISABLED: "1",

@@ -7,21 +7,20 @@
     120,
     120
   ],
-  "rulerDistanceMm": 14.5,
   "rulerCount": 12,
-  "axialSpanMm": 53,
+  "axialSpanMm": 55,
   "boundsZUpMm": [
-    53,
-    120,
-    120.11718750000001
+    55,
+    133.96409606933594,
+    123.11715698242188
   ],
-  "triangleCount": 41524,
+  "triangleCount": 62032,
   "orientation": {
     "rotationX": 90,
     "rotationY": 0,
     "rotationZ": 0
   },
-  "geometrySha256": "27d36c2f334870f570cd93d67734839f01082e5c30a3a21c53587a66bb672834",
+  "geometrySha256": "63cbe4f2da0f7dcb55fe509a30b34851d46ceeab7cc05dfeb39c64287b65676d",
   "basicMeshChecksPass": true,
   "files": {
     "project": "cmp170-120mm-fan-adapter.skf",
@@ -29,10 +28,11 @@
     "preview": "preview.png"
   },
   "sha256": {
-    "project": "3fb37267c847e08f33f0b53aa0e1cd45b6cadb139c5a97bc026ae000d4d31354",
-    "mesh": "92453002563d2acede7a1b7c65046c883170ef4dbb2c8a1188e8102850c5b72a"
+    "project": "7bf20edc62d8cc05282b21edd4d0fb4cf7b6565c0b8026fd3a52e0a9dd5936bb",
+    "mesh": "7d6fbe486c4d4e5824e7ec6c8b98d7ab90602f41eb4ca73a5802f1be2c3a0438"
   },
   "sourceSha256": {
-    "project": "be0d8fd65297e95fa0afea356fa35d65cbde667b0671ca80a7423fdf313731e3"
-  }
+    "project": "8699130dc580fa14e6029a4b3bcba666f4d2bcc868bd1ad5fd353b8042d857de"
+  },
+  "rulerDistanceMm": 14.5
 }

@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.0.13
+
+- Added protected end-face pulling with preview, a drag handle, and named flange selection.
+- Local flange stand-off extends only a short collar next to the selected mounting plate; the duct and opposite flange stay fixed.
+- Refreshed the built-in CMP 170 demo from the owner's latest saved fitted model, retaining its editing orientation and measurements.
 
 - Arrow-key holds (including Ctrl/Cmd+arrow elevation changes) now finish as one undo step and one save on release. Separate taps remain separate undo steps.
 - Reduced autosave work after transforms by sharing CAD display edges across undo states and reusing immutable mesh, B-Rep, and image encoding.

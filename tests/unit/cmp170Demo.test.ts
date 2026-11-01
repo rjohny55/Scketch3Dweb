@@ -10,6 +10,7 @@ import {measureAnnotatedFace,faceGeometryKey} from '@/lib/faceAnnotations';
 import {meshPrintReport} from '@/lib/meshPrintReport';
 import {readEndConnections} from '@/lib/endOffset';
 import {bindRulerFace} from '@/lib/rulerFaceAnchor';
+import {deformRulerPoint} from '@/lib/rulerDeformation';
 
 const root='examples/cmp170-fan-adapter';
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
@@ -42,7 +43,7 @@ describe('CMP 170 fitted fan adapter demo',()=>{
   expect(project.shapes).toHaveLength(1);
   const shape=project.shapes[0];
   expect(shape.rotationX).toBe(90);
-  expect(shape.width).toBe(53);
+  expect(shape.width).toBe(manifest.axialSpanMm);
   expect(shape.locked).toBe(false);
   expect(shape.faceAnnotations?.map(a=>a.name)).toEqual(['NVIDIA CMP 170 flange','120 mm fan flange']);
   const geometry=new THREE.BufferGeometry();
@@ -64,7 +65,7 @@ describe('CMP 170 fitted fan adapter demo',()=>{
   const object=new THREE.Group();object.add(mesh);object.updateMatrixWorld(true);
   const connections=readEndConnections(shape,object);
   for(const point of [a,b]){
-    const local=new THREE.Vector3(...point.attachment!.normalized).multiply(new THREE.Vector3(shape.width!,shape.height,shape.depth!));
+    const local=new THREE.Vector3(...deformRulerPoint(point.attachment!.deformationAnchor??point.attachment!.normalized,shape.rulerDeformations)).multiply(new THREE.Vector3(shape.width!,shape.height,shape.depth!));
     expect(bindRulerFace(local,connections)).toBeDefined();
   }
  });

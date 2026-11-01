@@ -105,7 +105,7 @@ Download Linux and Windows x64 desktop packages from [GitHub Releases](https://g
 - Linux: AppImage or Debian/Ubuntu `.deb` package.
 - Windows: `.exe` installer with a selectable installation directory.
 
-The packages are unsigned. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.12 release notes](docs/releases/1.0.12.md).
+The packages are unsigned. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.13 release notes](docs/releases/1.0.13.md).
 
 To build the desktop application from source:
 

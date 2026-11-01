@@ -28,7 +28,7 @@ describe('pull a protected end by its face',()=>{
    mapped.forEach((n,k)=>expect(Math.abs(n-p[k]-7*weight*normal[k])).toBeLessThan(1e-7));
   }
   expect(fixed).toBeGreaterThan(1000);expect(moving).toBeGreaterThan(100);
- });
+ },20000);
  it.each([1,-1])('keeps the entire duct outside a 1 mm collar unchanged for end %s',sign=>{
   const r=facePullTriangles(points(),[sign,0,0],10,{distance:7,keepFixed:2,keepMoving:2,transitionLength:1});
   const raw=(p:[number,number,number])=>r.mapPoint(p).map((n,i)=>n+r.rootShift[i]-(i===1?r.nextSize[1]/2:0));

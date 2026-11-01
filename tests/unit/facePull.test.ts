@@ -1,4 +1,5 @@
 import {describe,it,expect} from 'vitest';
+import {readFileSync} from 'node:fs';
 import * as THREE from 'three';
 import {computeBoundsTree} from 'three-mesh-bvh';
 import {facePullTriangles,pullFaceShape} from '@/lib/facePull';
@@ -7,9 +8,39 @@ import {meshPrintReport} from '@/lib/meshPrintReport';
 import {snapshotModelingJob} from '@/lib/modelingWorkerProtocol';
 import {computeModelingJob} from '@/lib/modelingWorkerCompute';
 import {deformRulerPoint,undeformRulerPoint} from '@/lib/rulerDeformation';
+import {importSkfProject} from '@/lib/skfProject';
 import type {WorkplaneShape} from '@/types/scketch3dweb';
 const points=()=>Array.from(new THREE.BoxGeometry(20,10,12).toNonIndexed().getAttribute('position').array);
 describe('pull a protected end by its face',()=>{
+ it('does not move any original duct vertex beyond the local collar on the shipped CMP170 flange',async()=>{
+  const doc=await importSkfProject(readFileSync('examples/cmp170-fan-adapter/cmp170-120mm-fan-adapter.skf'));
+  const shape=doc.shapes.find(s=>s.importedMesh)!;
+  const face=shape.faceAnnotations!.find(f=>f.name.includes('NVIDIA'))!;
+  const source=shape.importedMesh!.positions;
+  const normal=new THREE.Vector3(...face.localNormal).normalize().toArray() as [number,number,number];
+  const plane=face.localPoint.reduce((sum,n,i)=>sum+n*normal[i],0);
+  const result=facePullTriangles(source,normal,plane,{distance:7,keepFixed:2,keepMoving:2,transitionLength:1});
+  let fixed=0,moving=0;
+  for(let i=0;i<source.length;i+=3){const p=source.slice(i,i+3) as [number,number,number],d=p.reduce((sum,n,k)=>sum+n*normal[k],0);
+   if(d>plane-3&&d<plane-2)continue;
+   const mapped=result.mapPoint(p).map((n,k)=>n+result.rootShift[k]-(k===1?result.nextSize[1]/2:0));
+   const weight=d<=plane-3?0:1;weight?moving++:fixed++;
+   mapped.forEach((n,k)=>expect(Math.abs(n-p[k]-7*weight*normal[k])).toBeLessThan(1e-7));
+  }
+  expect(fixed).toBeGreaterThan(1000);expect(moving).toBeGreaterThan(100);
+ });
+ it.each([1,-1])('keeps the entire duct outside a 1 mm collar unchanged for end %s',sign=>{
+  const r=facePullTriangles(points(),[sign,0,0],10,{distance:7,keepFixed:2,keepMoving:2,transitionLength:1});
+  const raw=(p:[number,number,number])=>r.mapPoint(p).map((n,i)=>n+r.rootShift[i]-(i===1?r.nextSize[1]/2:0));
+  for(const x of [-10,-8,0,5,7]){const p:[number,number,number]=[sign*x,2,3];const moved=raw(p);moved.forEach((n,i)=>expect(n).toBeCloseTo(p[i],8));}
+  expect(raw([sign*7.5,0,0])[0]).toBeCloseTo(sign*11);
+  for(const x of [8,9,10])expect(raw([sign*x,0,0])[0]).toBeCloseTo(sign*(x+7));
+  expect(r.rulerMap?.high-r.rulerMap!.low).toBe(1);
+ });
+ it('never silently expands a local collar into the duct and refuses collapse',()=>{
+  for(const transitionLength of [0,NaN,Infinity,17])expect(()=>facePullTriangles(points(),[1,0,0],10,{distance:7,keepFixed:2,keepMoving:2,transitionLength})).toThrow();
+  expect(()=>facePullTriangles(points(),[1,0,0],10,{distance:-1,keepFixed:2,keepMoving:2,transitionLength:1})).toThrow();
+ });
  it('keeps both circular rims and the through-channel intact on a hollow mounting tube',()=>{
   const source:number[]=[],N=24;
   const p=(r:number,y:number,i:number):[number,number,number]=>[r*Math.cos(i*2*Math.PI/N),y,r*Math.sin(i*2*Math.PI/N)];

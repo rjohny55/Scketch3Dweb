@@ -1,4 +1,12 @@
 {
+  "Pull mode": "Режим вытягивания",
+  "Flange stand-off — keep duct fixed": "Вынос крепления — трубу не менять",
+  "Stretch entire connection": "Растянуть весь переход",
+  "Local transition depth (mm)": "Участок у крепления (мм)",
+  "Move the mounting plate and its holes as one piece. Only a short collar behind the plate changes; the main duct stays in its original position and shape.": "Крепёжная площадка с отверстиями перемещается целиком. Меняется только короткий участок за площадкой; основная труба сохраняет положение и форму.",
+  "Local transition depth is the original strip behind the protected plate that becomes the new neck. Start with 1 mm. Everything farther into the duct remains fixed. Use Preview to check access for the power plug and screwdriver.": "Это исходная полоска за крепёжной площадкой, из которой получается удлинённая шейка. Начните с 1 мм. Всё дальше в глубь трубы остаётся на месте. В предпросмотре проверьте место для разъёма питания и отвёртки.",
+  "The local transition must be at least 0.01 mm long.": "Длина локального участка должна быть не менее 0,01 мм.",
+  "The local transition overlaps the fixed end. Reduce its length or the protected regions.": "Локальный участок захватывает неподвижный торец. Уменьшите его длину или защищённые зоны.",
   "Use named end face": "Выбрать по метке грани",
   "Select a face": "Выберите грань",
   "Pull end face": "Вытянуть грань",

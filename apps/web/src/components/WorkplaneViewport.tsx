@@ -27,6 +27,8 @@ import { getManifoldRuntime } from "@/lib/manifoldRuntime";
 import { meshReplacementFingerprint } from "@/lib/replaceImportedMesh";
 import { floorRotation } from "@/lib/floorRotation";
 import { stretchShape, type AxialStretchOptions } from "@/lib/axialStretch";
+import {FacePullPanel,type FacePullDragController} from '@/components/workplane/FacePullPanel';
+import type {FacePullOptions} from '@/lib/facePull';
 import { RightDoubleClick } from "@/lib/rightDoubleClick";
 import {historyMetadata,withHistoryMetadata,type TransientHistoryAction} from "@/lib/sessionActionHistory";
 import { createFacePaint } from "@/lib/facePaint";
@@ -2481,6 +2483,12 @@ export function WorkplaneViewport({
   const faceLabelsVisibleRef = useRef(faceLabelsVisible);
   faceLabelsVisibleRef.current = faceLabelsVisible;
   const [faceMode, setFaceMode] = useState(false);
+  const [pullFace,setPullFace]=useState<{shapeId:string;annotation:FaceAnnotation}|null>(null);
+  const pullPickRef=useRef<string|null>(null);
+  const pullDragRef=useRef<FacePullDragController|null>(null);
+  const [pullPicking,setPullPicking]=useState(false);
+  useEffect(()=>{setPullFace(null);pullPickRef.current=null;setPullPicking(false);},[shapes,selectedIds[0]]);
+  useEffect(()=>{if(!faceMode){pullPickRef.current=null;setPullPicking(false);}},[faceMode]);
   const [faceDraft, setFaceDraft] = useState<{ shapeId: string; annotation: FaceAnnotation } | null>(null);
   const [faceName, setFaceName] = useState("");
   const [faceReadings, setFaceReadings] = useState<FaceMeasurement[]>([]);
@@ -4589,6 +4597,12 @@ export function WorkplaneViewport({
       const annotation = previous?.surface === surface && previous.triangles.has(hit.faceIndex)
         ? { ...previous.annotation, localPoint: surface.worldToLocal(hit.point.clone()).toArray() as [number,number,number] }
         : annotatePlanarFace(surface, hit.faceIndex, hit.point);
+      if(!hover && pullPickRef.current) {
+        if(hit.object.userData.shapeId!==pullPickRef.current)throw new Error('Click a face of the selected part.');
+        const shape=shapesRef.current.find(s=>s.id===pullPickRef.current);
+        if(!shape||shape.locked)throw new Error('Select an unlocked part.');
+        setPullFace({shapeId:shape.id,annotation});pullPickRef.current=null;setPullPicking(false);setFaceMode(false);setFaceError('');clearFaceHighlight();return;
+      }
       if(!hover && floorPickRef.current) {
         const shape=shapesRef.current.find(s=>s.id===floorPickRef.current);
         if(!shape || shape.id!==hit.object.userData.shapeId)throw new Error("Click a face of the selected part.");
@@ -5578,6 +5592,26 @@ export function WorkplaneViewport({
     } else { clearMoveDimensions(); onUpdateShape(shape.id, updated); }
   }, [onUpdateShape, clearMoveDimensions, clearStretchPreview]);
   const editStretchShape=async(options:AxialStretchOptions,preview:boolean)=>{const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===selectedShape?.id),object=state&&shape&&findShapeObject(state,shape.id);if(!shape||!object)throw new Error("Select a part.");showDeformation(await calculateDeformation(shape,object,{kind:"stretch",options}),preview);};
+  const editFacePull=async(options:FacePullOptions,preview:boolean)=>{const state=threeRef.current,shape=shapesRef.current.find(s=>s.id===pullFace?.shapeId),object=state&&shape&&findShapeObject(state,shape.id);if(!shape||!object||selectedIdsRef.current[0]!==shape.id)throw Error('Select a part and pick its end face.');showDeformation(await calculateDeformation(shape,object,{kind:'pull-face',options}),preview);};
+  useEffect(()=>{
+    const state=threeRef.current,host=hostRef.current;if(!state||!host||!pullFace)return;
+    const shape=shapesRef.current.find(s=>s.id===pullFace.shapeId),object=shape&&findShapeObject(state,shape.id);if(!shape||!object||shape.locked)return;
+    const connection=readEndConnections({...shape,faceAnnotations:[pullFace.annotation]},object)[0];if(!connection)return;
+    const point=new THREE.Vector3(...connection.worldCenter),normal=new THREE.Vector3(...connection.worldNormal).normalize();
+    const length=Math.max(5,Math.min(25,Math.max(shape.width,shape.height,shape.depth)*.2));
+    const arrow=new THREE.ArrowHelper(normal,point,length,0xffa528,length*.22,length*.12);setObjectRenderLayer(arrow,RENDER_LAYER_PREVIEWS);state.scene.add(arrow);state.needsRender=true;
+    const button=document.createElement('button');button.type='button';button.className='face-pull-handle';button.textContent='↗';button.setAttribute('aria-label','Drag end face');button.title='Drag to preview; Apply in the panel';
+    Object.assign(button.style,{position:'absolute',zIndex:'10',width:'34px',height:'34px',borderRadius:'50%',background:'#ffad32',color:'#151515',border:'2px solid white',fontSize:'22px',cursor:'ns-resize',touchAction:'none',transform:'translate(-50%,-50%)'});host.appendChild(button);
+    const screen=(p:THREE.Vector3)=>{const rect=state.renderer.domElement.getBoundingClientRect(),v=p.clone().project(state.camera);return{x:rect.left+(v.x+1)*rect.width/2,y:rect.top+(1-v.y)*rect.height/2,z:v.z};};
+    let raf=0,drag:{x:number;y:number;dx:number;dy:number;scale:number;start:number;value:number}|null=null;
+    const tick=()=>{const tip=screen(point.clone().addScaledVector(normal,length)),rect=host.getBoundingClientRect();button.style.left=`${tip.x-rect.left}px`;button.style.top=`${tip.y-rect.top}px`;button.style.display=tip.z<-1||tip.z>1?'none':'';raf=requestAnimationFrame(tick);};tick();
+    const stop=(e:Event)=>{e.stopPropagation();};
+    button.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const a=screen(point),b=screen(point.clone().addScaledVector(normal,10)),dx=b.x-a.x,dy=b.y-a.y,px=Math.hypot(dx,dy),start=pullDragRef.current?.distance()??0;if(px<2||!Number.isFinite(start))return;drag={x:e.clientX,y:e.clientY,dx:dx/px,dy:dy/px,scale:px/10,start,value:start};button.setPointerCapture(e.pointerId);});
+    button.addEventListener('pointermove',e=>{e.stopPropagation();if(!drag)return;drag.value=THREE.MathUtils.clamp(drag.start+((e.clientX-drag.x)*drag.dx+(e.clientY-drag.y)*drag.dy)/drag.scale,-10000,10000);button.textContent=`${drag.value.toFixed(1)}`;});
+    button.addEventListener('pointerup',e=>{e.stopPropagation();if(!drag)return;const value=drag.value;drag=null;button.textContent='↗';if(button.hasPointerCapture(e.pointerId))button.releasePointerCapture(e.pointerId);pullDragRef.current?.preview(value);});
+    button.addEventListener('pointercancel',()=>{drag=null;button.textContent='↗';});button.addEventListener('click',stop);button.addEventListener('dblclick',stop);
+    return()=>{cancelAnimationFrame(raf);button.remove();arrow.parent?.remove(arrow);disposeObject(arrow);state.needsRender=true;};
+  },[pullFace,shapes]);
   const offsetBaselineRef=useRef<{key:string;shape:WorkplaneShape;expected:string}|null>(null);
   const [offsetBaseConnections,setOffsetBaseConnections]=useState<EndConnection[]|null>(null);
   const [offsetSessionVersion,setOffsetSessionVersion]=useState(0);
@@ -5889,7 +5923,7 @@ export function WorkplaneViewport({
     ...(holeSelected?[{id:'remove-hole',label:'Remove hole',short:'Delete',icon:Trash2,disabled:quickDisabled||holeBusy,run:()=>void applyHole(null)}]:[]),
   ]:quickSingle?[
     settingsTool('properties','Properties','Size',SlidersHorizontal),
-    ...(!selectedShape.groupedShapes?.length?[settingsTool('offset','Offset duct connection','Offset',MoveRight),settingsTool('floor','Rotate on floor','Turn',RotateCw),settingsTool('stretch','Stretch body','Stretch',Expand)]:[]),
+    ...(!selectedShape.groupedShapes?.length?[settingsTool('offset','Offset duct connection','Offset',MoveRight),settingsTool('floor','Rotate on floor','Turn',RotateCw),settingsTool('pull-face','Pull end face','Pull',MoveRight),settingsTool('stretch','Stretch body','Stretch',Expand)]:[]),
     ...(selectedShape.kind!=='gear'?[settingsTool('taper','Taper','Taper',Triangle)]:[settingsTool('gear-teeth','Teeth','Teeth',Gear),...(selectedShape.gearType==='helical'?[settingsTool('gear-helix','Helix','Helix',RotateCw)]:[])]),
     {id:'holes',label:'Object holes',short:'Holes',icon:Circle,disabled:quickDisabled||Boolean(selectedShape.groupedShapes?.length),run:()=>{clearQuickModes();setHoleError('');setHoleDraft(null);setHoleSelected(null);setHolePlacement(null);holeSketchRef.current=null;setHoleDrawWorld([]);setHoleModeId(selectedShape.id);}},
     settingsTool('color','Shape color','Color',Palette),
@@ -6116,6 +6150,7 @@ export function WorkplaneViewport({
           onEndOffset={options=>editEndOffset(options,false)}
           onEndOffsetPreview={options=>editEndOffset(options,true)}
           onEndOffsetClear={clearStretchPreview}
+          facePullEditor={<FacePullPanel key={selectedShape.id} onDragBind={controller=>{pullDragRef.current=controller;}} face={pullFace?.shapeId===selectedShape.id?pullFace.annotation:null} locked={Boolean(selectedShape.locked)} picking={pullPicking} openRequest={inspectorSectionRequest?.section==='pull-face'?inspectorSectionRequest.sequence:0} onClear={clearStretchPreview} onRun={editFacePull} onPick={()=>{const cancel=pullPickRef.current===selectedShape.id;clearQuickModes();setFaceDraft(null);setFaceError('');setFacePanelOpen(false);if(cancel){pullPickRef.current=null;setPullPicking(false);}else{pullPickRef.current=selectedShape.id;setPullPicking(true);setFaceMode(true);}}}/>}
           floorPicking={floorPickId===selectedShape.id}
           onFloorRotate={degrees=>{const state=threeRef.current,object=state&&findShapeObject(state,selectedShape.id);if(!state||!object)return;clearStretchPreview();onUpdateShape(selectedShape.id,floorRotation(selectedShape,object,degrees));}}
           onFloorPick={()=>{onWorkplaneModeChange(false);clearStretchPreview();setStretchMeasureMode(false);setStretchEdit(null);stretchEditRef.current=null;setPaintMode(false);setFaceMode(false);setFaceDraft(null);setCameraPanMode(false);cameraPanModeRef.current=false;if(threeRef.current)threeRef.current.cameraPanMode=false;setFaceError("");setFloorPickId(id=>id===selectedShape.id?null:selectedShape.id);}}

@@ -90,7 +90,7 @@ export function connectionPositionGaps(connections:EndConnection[],options:Conne
  };
  return {vertical:anchor(moving,directions[0],options.movingAnchorU)-anchor(fixed,directions[0],options.fixedAnchorU),horizontal:anchor(moving,directions[1],options.movingAnchorV)-anchor(fixed,directions[1],options.fixedAnchorV)};
 }
-function offsetAlongFrame(source:number[],frame:ConnectionFrame,offsetU:number,offsetV:number,displacement?:Point):MeshDeformation{
+export function offsetAlongFrame(source:number[],frame:ConnectionFrame,offsetU:number,offsetV:number,displacement?:Point):MeshDeformation{
  if(![offsetU,offsetV].every(Number.isFinite)||Math.max(Math.abs(offsetU),Math.abs(offsetV))>10000)throw new Error('Смещение должно быть конечным числом в пределах 10000 мм.');
  const n=new THREE.Vector3(...frame.direction),u=new THREE.Vector3(...frame.u),v=new THREE.Vector3(...frame.v),delta=displacement?new THREE.Vector3(...displacement):u.clone().multiplyScalar(offsetU).addScaledVector(v,offsetV);
  if(frame.high-frame.low+delta.dot(n)<.01)throw new Error("Смещение сближает защищённые грани до пересечения. Уменьшите смещение или зоны защиты.");

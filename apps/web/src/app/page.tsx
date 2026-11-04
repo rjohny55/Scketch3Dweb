@@ -7,13 +7,14 @@ import { ProjectHistory } from "@/components/ProjectHistory";
 import { ProjectActivityFeed } from "@/components/ProjectActivityFeed";
 import { PROJECT_CATEGORIES } from "@/lib/projectCategories";
 import { UserAdministration } from "@/components/UserAdministration";
-import { accountStorageKey, accountDatabaseName, getClientAccount, accountProjectLinks, linkAccountProject, pauseAccountProjectForDeletion, resumeAccountProject, forgetAccountProject, reconcileAccountProjectLinks, isAccountProjectDeleted, saveAccountSnapshot, updateAccountThumbnail, publishAccountSnapshot, setAccountProjectSharing, type AccountProject } from "@/lib/accountClient";
+import { accountStorageKey, accountDatabaseName, getClientAccount, accountProjectLinks, linkAccountProject, flushAccountProject, pauseAccountProjectForDeletion, resumeAccountProject, forgetAccountProject, reconcileAccountProjectLinks, isAccountProjectDeleted, saveAccountSnapshot, updateAccountThumbnail, publishAccountSnapshot, setAccountProjectSharing, type AccountProject } from "@/lib/accountClient";
 import { BuiltinRobotDemo } from '@/components/BuiltinRobotDemo';
 import { BuiltinFlangeDemo } from '@/components/BuiltinFlangeDemo';
 import { AppAppearanceSettings } from "@/components/AppAppearanceSettings";
 import { McpConnectionSettings } from "@/components/McpConnectionSettings";
+import { copyProjectContents, projectCopyName } from "@/lib/projectCopy";
 import { T, L } from "@/components/Localization";
-import { ArrowUpRight, Box, Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, HomeIcon, List, Palette, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ArrowUpRight, Copy, Box, Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, HomeIcon, List, Palette, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Scketch3DwebEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/Scketch3DwebEditor";
 import ChallengesDashboard from "@/components/official/ChallengesDashboard";
@@ -1253,17 +1254,94 @@ function HomeWorkspace() {
   };
 
   const renameProject = async (projectId: string, name: string) => {
-    const nextName = name.trim().slice(0, 80);
-    if (!nextName) return;
-    const server = projectId.startsWith("server:") ? accountProjects.find(p=>`server:${p.fileName}`===projectId) : accountProjectLinks()[projectId];
-    if (server?.canManage) {
-      const r=await fetch(`/api/shared-projects?fileName=${encodeURIComponent(server.fileName)}`,{method:"PATCH",headers:{"Content-Type":"application/json","If-Match":`"${server.revision}"`},body:JSON.stringify({name:nextName})});const body=await r.json();if(!r.ok){setDashboardNotice(body.error);return;}
-      if(!projectId.startsWith("server:"))linkAccountProject(projectId,{...body.project,draft:server.draft});
+    try {
+      await projectShapeSaveQueuesRef.current[projectId];
+      if (!projectId.startsWith("server:")) await flushAccountProject(projectId);
+      let renamedRevision: number | undefined;
+      const nextName = name.trim().slice(0, 80);
+      if (!nextName) return false;
+      const server = projectId.startsWith("server:") ? accountProjects.find(p=>`server:${p.fileName}`===projectId) : accountProjectLinks()[projectId];
+      if (server?.canManage) {
+        const r=await fetch(`/api/shared-projects?fileName=${encodeURIComponent(server.fileName)}`,{method:"PATCH",headers:{"Content-Type":"application/json","If-Match":`"${server.revision}"`},body:JSON.stringify({name:nextName})});const body=await r.json();if(!r.ok) throw new Error(body.error ?? "Could not rename the project.");
+        if(!projectId.startsWith("server:"))linkAccountProject(projectId,{...body.project,draft:server.draft});
+        await refreshSharedProjects();
+      }
+      if (!projectId.startsWith("server:")) {
+        const project = projects.find(item => item.id === projectId);
+        const loaded = await loadProjectShapes(projectId) ?? projectShapesById[projectId];
+        if (!project || !loaded) throw new Error("Could not load project shapes");
+        const revision = Math.max(Date.now(), nextProjectRevisionRef.current + 1);
+        nextProjectRevisionRef.current = revision;
+        renamedRevision = revision;
+        const entry = projectShapeCacheEntry(revision, loaded.shapes ?? [], loaded.history, loaded.historyIndex, loaded.assets, loaded.rulers);
+        // Server metadata was renamed above. Keep the local SKF name in sync
+        // without creating a second server revision or publishing a private draft.
+        await saveProjectShapes(projectId, entry, projectShapeSaveContext({ ...project, name: nextName }), true);
+        setProjectShapesById(current => ({ ...current, [projectId]: entry }));
+      }
+      setProjects((current) =>
+        current.map((project) => (project.id === projectId ? { ...project, name: nextName, updatedAt: Date.now(), revision: renamedRevision ?? project.revision } : project)),
+      );
+      setDashboardNotice("Project renamed.");
+      return true;
+    } catch (error) { setDashboardNotice(error instanceof Error ? error.message : "Could not rename the project."); return false; }
+  };
+
+  const projectCopyBusyRef = useRef(false);
+  const duplicateProject = async (projectId: string) => {
+    if (projectCopyBusyRef.current) return;
+    projectCopyBusyRef.current = true;
+    let copyId: string | undefined;
+    try {
+      await projectShapeSaveQueuesRef.current[projectId];
+      const source = visibleProjects.find(project => project.id === projectId);
+      if (!source) throw new Error("Could not find the project.");
+      let context = projectShapeSaveContext(source);
+      let entry: ProjectShapeCacheEntry;
+      if (projectId.startsWith("server:")) {
+        const remote = accountProjects.find(project => `server:${project.fileName}` === projectId);
+        if (!remote) throw new Error("Could not find the project.");
+        const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(remote.fileName)}`, { cache: "no-store" });
+        if (!response.ok) throw new Error("Could not download shared project");
+        const restored = await importSkfProject(await response.arrayBuffer());
+        context = projectShapeSaveContext({ ...source, ...restored, name: source.name });
+        entry = projectShapeCacheEntry(Date.now(), restored.shapes, restored.history, restored.historyIndex, restored.assets, restored.rulers);
+      } else {
+        const loaded = await loadProjectShapes(projectId) ?? projectShapesById[projectId];
+        if (!loaded) throw new Error("Could not load project shapes");
+        entry = projectShapeCacheEntry(Date.now(), loaded.shapes ?? [], loaded.history, loaded.historyIndex, loaded.assets, loaded.rulers);
+      }
+      const suffix = window.localStorage.getItem("scketch3dweb.language") === "ru" ? "копия" : "copy";
+      const project = { ...newProject(projectCopyName(source.name, [...projects.map(item => item.name), ...accountProjects.map(item => item.name)], suffix), projects.length, entry.shapes.length),
+        workspace: copyProjectContents(context.workspace), snapGrid: context.snapGrid,
+        placementElevation: context.placementElevation, placementWorkplane: copyProjectContents(context.placementWorkplane),
+        sketchPlacementWorkplane: copyProjectContents(context.sketchPlacementWorkplane) };
+      let thumbnail: string | undefined;
+      if (source.thumbnailUrl) {
+        try {
+          if (source.thumbnailUrl.startsWith("data:image/png;base64,")) thumbnail = source.thumbnailUrl;
+          else {
+            const image = await fetch(source.thumbnailUrl);
+            if (image.ok) thumbnail = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader(); reader.onerror = () => reject(reader.error);
+              reader.onload = () => resolve(String(reader.result)); image.blob().then(blob => reader.readAsDataURL(blob), reject);
+            });
+          }
+        } catch { /* A missing preview must not prevent copying the actual model. */ }
+      }
+      copyId = project.id;
+      entry = { ...copyProjectContents(entry), revision: project.revision! };
+      // A copy gets its own account file and never inherits sharing/draft links.
+      await saveProjectShapes(project.id, entry, projectShapeSaveContext(project));
+      setProjectShapesById(current => ({ ...current, [project.id]: entry }));
+      setProjects(current => [{ ...project, thumbnailUrl: thumbnail }, ...current]);
+      if (thumbnail) void updateAccountThumbnail(project.id, thumbnail).catch(() => undefined);
+      setDashboardNotice("Project copy created.");
       await refreshSharedProjects();
-    }
-    setProjects((current) =>
-      current.map((project) => (project.id === projectId ? { ...project, name: nextName, updatedAt: Date.now() } : project)),
-    );
+    } catch (error) {
+      if (copyId) await deleteProjectShapes(copyId).catch(() => undefined);
+      setDashboardNotice(error instanceof Error ? error.message : "Could not copy the project.");
+    } finally { projectCopyBusyRef.current = false; }
   };
 
   if (!mounted) {
@@ -1344,6 +1422,7 @@ function HomeWorkspace() {
           onOpenSettings={() => setSettingsOpen(true)}
           onQueryChange={setQuery}
           onRenameProject={renameProject}
+          onDuplicateProject={duplicateProject}
           onRefreshSharedProjects={() => void refreshSharedProjects()}
           onSharedProjects={() => {
             setDashboardSection("shared");
@@ -1504,6 +1583,7 @@ function Dashboard({
   onOpenSettings,
   onQueryChange,
   onRenameProject,
+  onDuplicateProject,
   onRefreshSharedProjects,
   onSharedProjects,
   onSortModeChange,
@@ -1542,7 +1622,8 @@ function Dashboard({
   onOpenProject: (projectId: string) => void;
   onOpenSettings: () => void;
   onQueryChange: (value: string) => void;
-  onRenameProject: (projectId: string, name: string) => void;
+  onRenameProject: (projectId: string, name: string) => Promise<boolean>;
+  onDuplicateProject: (projectId: string) => Promise<void>;
   onRefreshSharedProjects: () => void;
   onSharedProjects: () => void;
   onSortModeChange: (value: string) => void;
@@ -1558,6 +1639,8 @@ function Dashboard({
   const categoryProjects = sharedProjects.filter(p=>sharedCategory==="all" || p.category===sharedCategory);
   const [sharedProjectPendingDeleteFileName, setSharedProjectPendingDeleteFileName] = useState<string | null>(null);
   const [projectPendingRenameId, setProjectPendingRenameId] = useState<string | null>(null);
+  const [projectActionBusy, setProjectActionBusy] = useState(false);
+  const [renameError, setRenameError] = useState(false);
   const [projectNameDraft, setProjectNameDraft] = useState("");
   const [desktopAppVersion, setDesktopAppVersion] = useState<string | null>(null);
   const projectPendingDelete = projects.find((project) => project.id === projectPendingDeleteId) ?? null;
@@ -1598,17 +1681,23 @@ function Dashboard({
     setOpenProjectMenuId(null);
     setProjectPendingRenameId(project.id);
     setProjectNameDraft(project.name);
+    setRenameError(false);
   };
 
   const closeProjectRename = () => {
+    if (projectActionBusy) return;
     setProjectPendingRenameId(null);
     setProjectNameDraft("");
   };
 
-  const confirmProjectRename = () => {
-    if (!projectPendingRename || !projectNameDraft.trim()) return;
-    onRenameProject(projectPendingRename.id, projectNameDraft);
-    closeProjectRename();
+  const confirmProjectRename = async () => {
+    if (!projectPendingRename || !projectNameDraft.trim() || projectActionBusy) return;
+    setProjectActionBusy(true); setRenameError(false);
+    try {
+      if (await onRenameProject(projectPendingRename.id, projectNameDraft)) {
+        setProjectPendingRenameId(null); setProjectNameDraft("");
+      } else setRenameError(true);
+    } finally { setProjectActionBusy(false); }
   };
 
   return (
@@ -1674,7 +1763,7 @@ function Dashboard({
             </div>
           ) : dashboardSection === "shared" ? (
             <>
-              {dashboardNotice ? <div className="dashboard-import-notice" role="status">{dashboardNotice}</div> : null}
+              {dashboardNotice ? <div className="dashboard-import-notice" role="status"><T text={dashboardNotice} /></div> : null}
               <header className="dashboard-welcome dashboard-section-welcome shared-projects-header">
                 <div>
                   <span className="dashboard-eyebrow"><span aria-hidden="true" /><T text="Your workspace" /></span>
@@ -1770,7 +1859,7 @@ function Dashboard({
               <BuiltinRobotDemo onOpen={onOpenBuiltinDemo}/>
               {dashboardNotice ? (
                 <div className="dashboard-import-notice" role="status">
-                  {dashboardNotice}
+                  <T text={dashboardNotice} />
                 </div>
               ) : null}
 
@@ -1812,6 +1901,7 @@ function Dashboard({
                         className="project-menu-trigger"
                         type="button"
                         aria-label={`Project options for ${project.name}`}
+                        disabled={projectActionBusy}
                         aria-expanded={openProjectMenuId === project.id}
                         title="Project options"
                         onClick={() => {
@@ -1825,10 +1915,15 @@ function Dashboard({
                         <L><div className="project-card-menu" role="menu" aria-label={`Options for ${project.name}`}>
                           {(project.serverProject?.version ?? 0) > 0 && <button type="button" role="menuitem" onClick={()=>{setOpenProjectMenuId(null);setHistoryProject(project.serverProject!);}}><T text="Version history"/></button>}
                           {(!project.serverProject || project.serverProject.canManage) && <button type="button" role="menuitem" onClick={()=>{setOpenProjectMenuId(null);onShareProject(project.id,!project.serverProject?.shared);}}><FolderKanban size={16}/><span><T text={project.serverProject?.shared?"Make private":"Make shared"}/></span></button>}
-                          <button type="button" role="menuitem" onClick={() => startProjectRename(project)}>
+                          <button type="button" role="menuitem" disabled={projectActionBusy} onClick={async () => {
+                            if (projectActionBusy) return;
+                            setOpenProjectMenuId(null); setProjectActionBusy(true);
+                            try { await onDuplicateProject(project.id); } finally { setProjectActionBusy(false); }
+                          }}><Copy size={16} /><span><T text="Create a copy" /></span></button>
+                          {(!project.serverProject || project.serverProject.canManage) && <button type="button" role="menuitem" onClick={() => startProjectRename(project)}>
                             <Pencil size={16} />
                             <span><T text={"Rename"} /></span>
-                          </button>
+                          </button>}
                           <button
                             className="delete"
                             type="button"
@@ -1906,7 +2001,7 @@ function Dashboard({
           >
             <header>
               <strong id="rename-project-title"><T text={"Rename project"} /></strong>
-              <L><button type="button" aria-label="Cancel project rename" onClick={closeProjectRename}>
+              <L><button type="button" aria-label="Cancel project rename" disabled={projectActionBusy} onClick={closeProjectRename}>
                 <X size={18} />
               </button></L>
             </header>
@@ -1915,14 +2010,17 @@ function Dashboard({
               <L><input
                 autoFocus
                 maxLength={80}
+                disabled={projectActionBusy}
+                onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); closeProjectRename(); } }}
                 value={projectNameDraft}
                 onChange={(event) => setProjectNameDraft(event.currentTarget.value)}
                 aria-label="Project name"
               /></L>
             </label>
+            {renameError && <p role="alert"><T text="Could not rename the project. Your changes were not discarded. Try again." /></p>}
             <div className="dashboard-confirm-actions">
-              <button className="dashboard-confirm-cancel" type="button" onClick={closeProjectRename}><T text={"Cancel"} /></button>
-              <button className="dashboard-confirm-save" type="submit" disabled={!projectNameDraft.trim()}><T text={"Save"} /></button>
+              <button className="dashboard-confirm-cancel" type="button" disabled={projectActionBusy} onClick={closeProjectRename}><T text={"Cancel"} /></button>
+              <button className="dashboard-confirm-save" type="submit" disabled={projectActionBusy || !projectNameDraft.trim()}><T text={projectActionBusy ? "Saving…" : "Save"} /></button>
             </div>
           </form>
         </section>

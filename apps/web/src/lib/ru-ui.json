@@ -1339,5 +1339,13 @@
   "Flange adapter connecting a 120 × 120 mm fan to an NVIDIA CMP 170 graphics card. Open an editable copy; the built-in original stays intact.": "Фланец для соединения вентилятора 120 × 120 мм с видеокартой NVIDIA CMP 170. Открывается редактируемая копия; встроенный оригинал остаётся неизменным.",
   "Open fan adapter demo": "Открыть демо фланца",
   "Download STL": "Скачать STL",
-  "Fitted model · 74.4 mm ruler distance · check fit and slicer settings before printing": "Подогнанная модель · размер по рулетке 74,4 мм · перед печатью проверьте посадку и настройки слайсера"
+  "Fitted model · 74.4 mm ruler distance · check fit and slicer settings before printing": "Подогнанная модель · размер по рулетке 74,4 мм · перед печатью проверьте посадку и настройки слайсера",
+  "Create a copy": "Создать копию",
+  "Project copy created.": "Копия проекта создана.",
+  "Project renamed.": "Проект переименован.",
+  "Could not copy the project.": "Не удалось создать копию проекта.",
+  "Could not rename the project.": "Не удалось переименовать проект.",
+  "Could not find the project.": "Проект не найден.",
+  "Could not rename the project. Your changes were not discarded. Try again.": "Не удалось переименовать проект. Введённое имя сохранено. Повторите попытку.",
+  "Saving…": "Сохранение…"
 }

@@ -14,7 +14,7 @@ import type { GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation,
 export const SKF_SCHEMA_ID = "com.scketch3dweb.project";
 export const SKF_FORMAT_VERSION = 2;
 export const SKF_MINIMUM_READER_VERSION = 2;
-export const SKF_CREATED_WITH_VERSION = "1.0.13";
+export const SKF_CREATED_WITH_VERSION = "1.0.14";
 export const SKF_MEDIA_TYPE = "application/vnd.scketch3dweb.project+zip";
 
 export const SKF_LIMITS = {

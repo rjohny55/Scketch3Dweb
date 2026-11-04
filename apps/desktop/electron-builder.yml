@@ -1,6 +1,7 @@
 appId: com.scketch3dweb.desktop
 productName: Scketch3Dweb
 asar: true
+afterPack: apps/desktop/after-pack.cjs
 
 publish:
   provider: github
@@ -39,7 +40,7 @@ nsis:
   createStartMenuShortcut: true
 
 mac:
-  icon: apps/web/public/assets/scketch3dweb/scketch3dweb-logo.png
+  icon: apps/web/public/assets/scketch3dweb/logo-original.png
   target:
     - dmg
     - zip

@@ -34,3 +34,11 @@ describe("desktop release configuration", () => {
     expect(page).toContain('href="https://github.com/rjohny55/Scketch3Dweb" target="_blank" rel="noopener noreferrer"');
   });
 });
+
+it('supplies a sufficiently large source icon for macOS packaging', () => {
+  const config = readFileSync('apps/desktop/electron-builder.yml', 'utf8');
+  expect(config).toMatch(/mac:\n  icon: apps\/web\/public\/assets\/scketch3dweb\/logo-original\.png/);
+  const png = readFileSync('apps/web/public/assets/scketch3dweb/logo-original.png');
+  expect(png.readUInt32BE(16)).toBeGreaterThanOrEqual(512);
+  expect(png.readUInt32BE(20)).toBeGreaterThanOrEqual(512);
+});

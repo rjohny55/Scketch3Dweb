@@ -100,12 +100,13 @@ npm run build
 
 ### Desktop application
 
-Download Linux and Windows x64 desktop packages from [GitHub Releases](https://github.com/rjohny55/Scketch3Dweb/releases). Docker and a separate Node.js installation are not required to run the packaged app.
+Download Linux, Windows and macOS desktop packages from [GitHub Releases](https://github.com/rjohny55/Scketch3Dweb/releases). Docker and a separate Node.js installation are not required to run the packaged app.
 
 - Linux: AppImage or Debian/Ubuntu `.deb` package.
-- Windows: `.exe` installer with a selectable installation directory.
+- Windows: x64 `.exe` installer with a selectable installation directory.
+- macOS: `.app` ZIP archives for Intel (x64) and Apple Silicon (arm64), built locally on Linux; startup on macOS has not been verified.
 
-The packages are unsigned. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.13 release notes](docs/releases/1.0.13.md).
+The packages have no publisher certificate; macOS ZIPs use ad-hoc signatures and are not notarized. Windows may show an unknown-publisher warning; verify the downloaded file against the release's `SHA256SUMS.txt`. See the [1.0.14 release notes](docs/releases/1.0.14.md).
 
 To build the desktop application from source:
 
@@ -114,7 +115,9 @@ npm run desktop:dev
 npm run desktop:pack
 ```
 
-Packaging depends on the target OS and build tools. For distributable packages, use `npm run desktop:dist -- --linux --x64 --publish never` or the corresponding `--win` target. Cross-building Windows on Linux requires Wine.
+Packaging depends on the target OS and build tools. For distributable packages, use `npm run desktop:dist -- --linux --x64 --publish never` or the corresponding `--win` target. Cross-building Windows on Linux requires Wine. macOS ZIP bundles can be produced locally with `--mac zip --x64 --arm64`; Set `RCODESIGN` to the official [apple-codesign](https://github.com/indygreg/apple-platform-rs/releases) executable when cross-building macOS on Linux. The packaging hook recursively adds ad-hoc signatures. DMG creation uses macOS tooling. Developer ID signing and notarization additionally require Apple credentials.
+
+On the home page, the project three-dot menu offers **Create a copy** and **Rename**. A copy keeps model data, rulers, attachments, workspace settings and history in a separate private project. Renaming waits for the save and preserves the entered name if it fails.
 
 ## Featured example: NVIDIA CMP 170 fan adapter
 
